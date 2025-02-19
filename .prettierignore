@@ -1,0 +1,10 @@
+# Example .prettierignore
+node_modules
+build
+dist
+.next
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
