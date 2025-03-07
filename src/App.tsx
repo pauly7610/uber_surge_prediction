@@ -1,15 +1,30 @@
 import React from 'react';
-import { BrowserRouter as Router, Route, Switch } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import Dashboard from './pages/Dashboard';
+import DriverDashboard from './pages/DriverDashboard';
+import Settings from './pages/Settings';
+import Layout from './components/Layout/Layout';
+import { NotificationProvider } from './context/NotificationContext';
+import ErrorBoundary from './components/common/ErrorBoundary';
+import { ThemeProvider } from './context/ThemeContext';
 
 const App: React.FC = () => {
   return (
-    <Router>
-      <Switch>
-        <Route path="/" exact component={Dashboard} />
-        {/* Add more routes as needed */}
-      </Switch>
-    </Router>
+    <ErrorBoundary>
+      <ThemeProvider>
+        <NotificationProvider>
+          <Router>
+            <Layout>
+              <Routes>
+                <Route path="/" element={<Dashboard />} />
+                <Route path="/driver" element={<DriverDashboard />} />
+                <Route path="/settings" element={<Settings />} />
+              </Routes>
+            </Layout>
+          </Router>
+        </NotificationProvider>
+      </ThemeProvider>
+    </ErrorBoundary>
   );
 };
 

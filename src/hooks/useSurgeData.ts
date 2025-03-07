@@ -4,7 +4,12 @@ import { GET_SURGE_DATA } from '../graphql/queries';
 
 interface SurgeData {
   multiplier: number;
-  // Add other relevant fields
+  timestamp?: string;
+  location?: {
+    latitude: number;
+    longitude: number;
+  };
+  estimatedDuration?: number;
 }
 
 export const useSurgeData = () => {
@@ -12,10 +17,10 @@ export const useSurgeData = () => {
   const { data, loading, error } = useQuery(GET_SURGE_DATA);
 
   useEffect(() => {
-    if (data) {
+    if (data && !error) {
       setSurgeData(data.surgeData);
     }
-  }, [data]);
+  }, [data, error]);
 
   return { surgeData, loading, error };
 }; 

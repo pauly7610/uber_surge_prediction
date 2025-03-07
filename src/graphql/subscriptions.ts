@@ -7,4 +7,18 @@ export const SURGE_UPDATE_SUBSCRIPTION = gql`
       multiplier
     }
   }
+`;
+
+export const NOTIFICATION_SUBSCRIPTION = gql`
+  subscription NotificationSubscription {
+    notification {
+      id
+      type
+      message
+      timestamp
+      read
+      expiresAt
+      actionUrl
+    }
+  }
 `; 

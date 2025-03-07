@@ -7,4 +7,13 @@ export const LOCK_SURGE_PRICE = gql`
       message
     }
   }
+`;
+
+export const UPDATE_NOTIFICATION_PREFERENCES = gql`
+  mutation UpdateNotificationPreferences($preferences: NotificationPreferencesInput!) {
+    updateNotificationPreferences(preferences: $preferences) {
+      success
+      message
+    }
+  }
 `; 
