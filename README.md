@@ -48,10 +48,34 @@ A React application for predicting and visualizing Uber surge pricing, allowing 
 
 4. Start the development server:
    ```
-   npm start
+   npm run dev
    # or
-   yarn start
+   yarn dev
    ```
+   This will start both the React app and the mock API server.
+
+## Mock API
+
+The application includes a mock API that simulates the GraphQL backend:
+
+### Local Development
+
+- When running locally, the mock API is served from a JSON Server instance
+- Start it with `npm run mock-api` or use `npm run dev` to start both the app and API
+
+### Vercel Deployment
+
+- When deployed to Vercel, the mock API is served from a serverless function
+- The API is automatically available at `/api/graphql` endpoints
+- No additional setup is required for the Vercel deployment
+
+### Available Endpoints
+
+- GraphQL Queries: `/api/graphql`
+- GraphQL Mutations: `/api/graphql/mutations`
+- GraphQL Subscriptions: `/api/graphql/subscriptions/*`
+
+For more details on the mock API, see the [mock-api/README.md](mock-api/README.md) file.
 
 ## Environment Variables
 
@@ -91,15 +115,31 @@ The application uses the following environment variables:
 
 ## Available Scripts
 
-- `npm start`: Runs the app in development mode
+- `npm start`: Runs just the React app in development mode
+- `npm run mock-api`: Runs just the mock API server
+- `npm run dev`: Runs both the React app and mock API server concurrently
 - `npm test`: Launches the test runner
 - `npm run build`: Builds the app for production
 - `npm run eject`: Ejects from Create React App
+
+## Deployment
+
+### Vercel Deployment
+
+The application is configured for easy deployment to Vercel:
+
+1. Connect your GitHub repository to Vercel
+2. Vercel will automatically detect the configuration
+3. The mock API will be available through serverless functions
+4. No additional configuration is needed
+
+Current deployment: [https://uber-surge-prediction.vercel.app/](https://uber-surge-prediction.vercel.app/)
 
 ## Project Structure
 
 ```
 src/
+├── api/              # Serverless API functions for Vercel
 ├── components/       # UI components
 │   ├── common/       # Shared components
 │   ├── Driver/       # Driver-related components
@@ -110,6 +150,7 @@ src/
 ├── context/          # React context providers
 ├── graphql/          # GraphQL queries, mutations, and subscriptions
 ├── hooks/            # Custom React hooks
+├── mock-api/         # Mock API server for development
 ├── pages/            # Page components
 ├── tests/            # Test files
 ├── types/            # TypeScript type definitions

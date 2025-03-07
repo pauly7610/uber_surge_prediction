@@ -16,6 +16,11 @@ import config from './utils/config';
 // Validate environment variables
 if (!validateEnvVariables()) {
   console.warn('Application may not function correctly due to missing environment variables');
+  
+  // In production, we'll continue with mock values
+  if (process.env.NODE_ENV === 'production') {
+    console.info('Using mock values for missing environment variables in production');
+  }
 }
 
 // Enable debug mode based on environment variable

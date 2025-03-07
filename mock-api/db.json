@@ -1,0 +1,471 @@
+{
+  "surgeData": {
+    "multiplier": 1.5,
+    "timestamp": "2023-07-01T12:00:00Z",
+    "location": {
+      "latitude": 40.7128,
+      "longitude": -74.0060
+    },
+    "estimatedDuration": 1800,
+    "priceRange": {
+      "min": 15.50,
+      "max": 22.75,
+      "currency": "USD"
+    },
+    "demandLevel": "High",
+    "availableDrivers": 12,
+    "estimatedWaitTime": 4
+  },
+  "historicalSurgeData": [
+    {
+      "timestamp": "2023-07-01T00:00:00Z",
+      "multiplier": 1.0
+    },
+    {
+      "timestamp": "2023-07-01T01:00:00Z",
+      "multiplier": 1.0
+    },
+    {
+      "timestamp": "2023-07-01T02:00:00Z",
+      "multiplier": 1.0
+    },
+    {
+      "timestamp": "2023-07-01T03:00:00Z",
+      "multiplier": 1.0
+    },
+    {
+      "timestamp": "2023-07-01T04:00:00Z",
+      "multiplier": 1.1
+    },
+    {
+      "timestamp": "2023-07-01T05:00:00Z",
+      "multiplier": 1.2
+    },
+    {
+      "timestamp": "2023-07-01T06:00:00Z",
+      "multiplier": 1.5
+    },
+    {
+      "timestamp": "2023-07-01T07:00:00Z",
+      "multiplier": 1.8
+    },
+    {
+      "timestamp": "2023-07-01T08:00:00Z",
+      "multiplier": 2.0
+    },
+    {
+      "timestamp": "2023-07-01T09:00:00Z",
+      "multiplier": 1.7
+    },
+    {
+      "timestamp": "2023-07-01T10:00:00Z",
+      "multiplier": 1.2
+    },
+    {
+      "timestamp": "2023-07-01T11:00:00Z",
+      "multiplier": 1.3
+    },
+    {
+      "timestamp": "2023-07-01T12:00:00Z",
+      "multiplier": 1.5
+    },
+    {
+      "timestamp": "2023-07-01T13:00:00Z",
+      "multiplier": 1.8
+    },
+    {
+      "timestamp": "2023-07-01T14:00:00Z",
+      "multiplier": 2.0
+    },
+    {
+      "timestamp": "2023-07-01T15:00:00Z",
+      "multiplier": 1.7
+    },
+    {
+      "timestamp": "2023-07-01T16:00:00Z",
+      "multiplier": 1.4
+    },
+    {
+      "timestamp": "2023-07-01T17:00:00Z",
+      "multiplier": 1.2
+    },
+    {
+      "timestamp": "2023-07-01T18:00:00Z",
+      "multiplier": 1.5
+    },
+    {
+      "timestamp": "2023-07-01T19:00:00Z",
+      "multiplier": 1.8
+    },
+    {
+      "timestamp": "2023-07-01T20:00:00Z",
+      "multiplier": 1.6
+    },
+    {
+      "timestamp": "2023-07-01T21:00:00Z",
+      "multiplier": 1.4
+    },
+    {
+      "timestamp": "2023-07-01T22:00:00Z",
+      "multiplier": 1.2
+    },
+    {
+      "timestamp": "2023-07-01T23:00:00Z",
+      "multiplier": 1.1
+    }
+  ],
+  "predictedSurgeData": [
+    {
+      "timestamp": "2023-07-02T00:00:00Z",
+      "multiplier": 1.0,
+      "confidence": 0.95
+    },
+    {
+      "timestamp": "2023-07-02T01:00:00Z",
+      "multiplier": 1.0,
+      "confidence": 0.95
+    },
+    {
+      "timestamp": "2023-07-02T02:00:00Z",
+      "multiplier": 1.0,
+      "confidence": 0.94
+    },
+    {
+      "timestamp": "2023-07-02T03:00:00Z",
+      "multiplier": 1.0,
+      "confidence": 0.93
+    },
+    {
+      "timestamp": "2023-07-02T04:00:00Z",
+      "multiplier": 1.1,
+      "confidence": 0.92
+    },
+    {
+      "timestamp": "2023-07-02T05:00:00Z",
+      "multiplier": 1.3,
+      "confidence": 0.90
+    },
+    {
+      "timestamp": "2023-07-02T06:00:00Z",
+      "multiplier": 1.6,
+      "confidence": 0.88
+    },
+    {
+      "timestamp": "2023-07-02T07:00:00Z",
+      "multiplier": 1.9,
+      "confidence": 0.85
+    },
+    {
+      "timestamp": "2023-07-02T08:00:00Z",
+      "multiplier": 2.1,
+      "confidence": 0.82
+    }
+  ],
+  "driverHeatmapData": [
+    { "x": 0, "y": 0, "value": 10, "latitude": 40.7128, "longitude": -74.0060 },
+    { "x": 0, "y": 1, "value": 15, "latitude": 40.7138, "longitude": -74.0070 },
+    { "x": 1, "y": 0, "value": 20, "latitude": 40.7118, "longitude": -74.0050 },
+    { "x": 1, "y": 1, "value": 25, "latitude": 40.7108, "longitude": -74.0040 },
+    { "x": 2, "y": 0, "value": 30, "latitude": 40.7148, "longitude": -74.0080 },
+    { "x": 2, "y": 1, "value": 35, "latitude": 40.7158, "longitude": -74.0090 },
+    { "x": 0, "y": 2, "value": 40, "latitude": 40.7168, "longitude": -74.0100 },
+    { "x": 1, "y": 2, "value": 45, "latitude": 40.7178, "longitude": -74.0110 },
+    { "x": 2, "y": 2, "value": 50, "latitude": 40.7188, "longitude": -74.0120 },
+    { "x": 3, "y": 0, "value": 55, "latitude": 40.7198, "longitude": -74.0130 },
+    { "x": 3, "y": 1, "value": 60, "latitude": 40.7208, "longitude": -74.0140 },
+    { "x": 3, "y": 2, "value": 65, "latitude": 40.7218, "longitude": -74.0150 },
+    { "x": 0, "y": 3, "value": 70, "latitude": 40.7228, "longitude": -74.0160 },
+    { "x": 1, "y": 3, "value": 75, "latitude": 40.7238, "longitude": -74.0170 },
+    { "x": 2, "y": 3, "value": 80, "latitude": 40.7248, "longitude": -74.0180 },
+    { "x": 3, "y": 3, "value": 85, "latitude": 40.7258, "longitude": -74.0190 }
+  ],
+  "driverPositioningIncentives": [
+    {
+      "id": "incentive-1",
+      "area": "Downtown",
+      "incentiveAmount": 15.00,
+      "deadline": "2023-07-01T14:30:00Z",
+      "estimatedDemand": "High",
+      "distance": 2.5,
+      "estimatedTimeToArrive": 10,
+      "coordinates": {
+        "latitude": 40.7128,
+        "longitude": -74.0060
+      },
+      "potentialEarnings": {
+        "min": 45.00,
+        "max": 65.00,
+        "currency": "USD"
+      },
+      "competingDrivers": 5
+    },
+    {
+      "id": "incentive-2",
+      "area": "Midtown",
+      "incentiveAmount": 12.50,
+      "deadline": "2023-07-01T15:00:00Z",
+      "estimatedDemand": "Medium",
+      "distance": 1.8,
+      "estimatedTimeToArrive": 7,
+      "coordinates": {
+        "latitude": 40.7580,
+        "longitude": -73.9855
+      },
+      "potentialEarnings": {
+        "min": 35.00,
+        "max": 55.00,
+        "currency": "USD"
+      },
+      "competingDrivers": 3
+    },
+    {
+      "id": "incentive-3",
+      "area": "Uptown",
+      "incentiveAmount": 18.00,
+      "deadline": "2023-07-01T15:30:00Z",
+      "estimatedDemand": "Very High",
+      "distance": 3.2,
+      "estimatedTimeToArrive": 15,
+      "coordinates": {
+        "latitude": 40.8075,
+        "longitude": -73.9626
+      },
+      "potentialEarnings": {
+        "min": 55.00,
+        "max": 75.00,
+        "currency": "USD"
+      },
+      "competingDrivers": 2
+    },
+    {
+      "id": "incentive-4",
+      "area": "Financial District",
+      "incentiveAmount": 20.00,
+      "deadline": "2023-07-01T16:00:00Z",
+      "estimatedDemand": "Extreme",
+      "distance": 1.5,
+      "estimatedTimeToArrive": 8,
+      "coordinates": {
+        "latitude": 40.7075,
+        "longitude": -74.0113
+      },
+      "potentialEarnings": {
+        "min": 60.00,
+        "max": 85.00,
+        "currency": "USD"
+      },
+      "competingDrivers": 7
+    },
+    {
+      "id": "incentive-5",
+      "area": "Brooklyn Heights",
+      "incentiveAmount": 16.50,
+      "deadline": "2023-07-01T16:30:00Z",
+      "estimatedDemand": "High",
+      "distance": 4.0,
+      "estimatedTimeToArrive": 18,
+      "coordinates": {
+        "latitude": 40.6975,
+        "longitude": -73.9935
+      },
+      "potentialEarnings": {
+        "min": 50.00,
+        "max": 70.00,
+        "currency": "USD"
+      },
+      "competingDrivers": 4
+    }
+  ],
+  "notifications": [
+    {
+      "id": "notif-1",
+      "type": "PRE_SURGE_WARNING",
+      "message": "Surge pricing expected in your area in 30 minutes",
+      "timestamp": "2023-07-01T11:30:00Z",
+      "read": false,
+      "expiresAt": "2023-07-01T12:30:00Z",
+      "actionUrl": "/price-lock",
+      "severity": "medium",
+      "details": {
+        "predictedMultiplier": 1.8,
+        "location": "Downtown",
+        "affectedRoutes": ["Home to Work", "Downtown to Airport"]
+      }
+    },
+    {
+      "id": "notif-2",
+      "type": "PRICE_LOCK_REMINDER",
+      "message": "Your price lock expires in 10 minutes",
+      "timestamp": "2023-07-01T12:50:00Z",
+      "read": true,
+      "expiresAt": "2023-07-01T13:00:00Z",
+      "actionUrl": "/price-lock",
+      "severity": "high",
+      "details": {
+        "lockedMultiplier": 1.2,
+        "currentMultiplier": 1.8,
+        "savings": "$8.50",
+        "route": "Downtown to Airport"
+      }
+    },
+    {
+      "id": "notif-3",
+      "type": "SURGE_ACTIVATION",
+      "message": "Surge pricing is now active in your area (2.0x)",
+      "timestamp": "2023-07-01T14:00:00Z",
+      "read": false,
+      "expiresAt": "2023-07-01T15:00:00Z",
+      "severity": "high",
+      "details": {
+        "multiplier": 2.0,
+        "estimatedDuration": "1 hour",
+        "affectedAreas": ["Downtown", "Midtown", "Financial District"]
+      }
+    },
+    {
+      "id": "notif-4",
+      "type": "DRIVER_INCENTIVE",
+      "message": "New high-demand area with $20 bonus",
+      "timestamp": "2023-07-01T15:30:00Z",
+      "read": false,
+      "expiresAt": "2023-07-01T16:30:00Z",
+      "actionUrl": "/driver/incentives",
+      "severity": "medium",
+      "details": {
+        "incentiveAmount": "$20.00",
+        "area": "Financial District",
+        "deadline": "4:00 PM",
+        "estimatedEarnings": "$60-$85"
+      }
+    },
+    {
+      "id": "notif-5",
+      "type": "PRICE_DROP_ALERT",
+      "message": "Prices dropping in your area - book now!",
+      "timestamp": "2023-07-01T17:15:00Z",
+      "read": false,
+      "expiresAt": "2023-07-01T18:15:00Z",
+      "actionUrl": "/book",
+      "severity": "low",
+      "details": {
+        "previousMultiplier": 1.8,
+        "currentMultiplier": 1.2,
+        "savings": "33%",
+        "estimatedDuration": "30 minutes"
+      }
+    }
+  ],
+  "userPreferences": {
+    "notificationPreferences": {
+      "notificationTypes": {
+        "preSurgeWarning": true,
+        "priceLockReminder": true,
+        "surgeActivation": true,
+        "driverIncentive": true,
+        "priceDropAlert": true
+      },
+      "notificationChannels": {
+        "pushNotification": true,
+        "sms": false,
+        "email": true
+      },
+      "notificationTiming": "4hours"
+    },
+    "displayPreferences": {
+      "theme": "dark",
+      "defaultView": "map",
+      "defaultTimeframe": "24hours",
+      "showPredictions": true
+    },
+    "routePreferences": [
+      {
+        "id": "route-1",
+        "name": "Home to Work",
+        "origin": {
+          "name": "Home",
+          "latitude": 40.7128,
+          "longitude": -74.0060
+        },
+        "destination": {
+          "name": "Work",
+          "latitude": 40.7580,
+          "longitude": -73.9855
+        },
+        "monitorForSurge": true
+      },
+      {
+        "id": "route-2",
+        "name": "Downtown to Airport",
+        "origin": {
+          "name": "Downtown",
+          "latitude": 40.7128,
+          "longitude": -74.0060
+        },
+        "destination": {
+          "name": "JFK Airport",
+          "latitude": 40.6413,
+          "longitude": -73.7781
+        },
+        "monitorForSurge": true
+      }
+    ]
+  },
+  "priceLocks": [
+    {
+      "id": "lock-1",
+      "routeId": "route-2",
+      "multiplier": 1.2,
+      "originalPrice": 45.00,
+      "lockedPrice": 54.00,
+      "currentPrice": 81.00,
+      "savings": 27.00,
+      "createdAt": "2023-07-01T12:30:00Z",
+      "expiresAt": "2023-07-01T13:00:00Z",
+      "status": "active",
+      "route": {
+        "origin": {
+          "name": "Downtown",
+          "latitude": 40.7128,
+          "longitude": -74.0060
+        },
+        "destination": {
+          "name": "JFK Airport",
+          "latitude": 40.6413,
+          "longitude": -73.7781
+        }
+      }
+    }
+  ],
+  "surgeEvents": [
+    {
+      "id": "event-1",
+      "startTime": "2023-07-01T08:00:00Z",
+      "endTime": "2023-07-01T09:30:00Z",
+      "peakMultiplier": 2.0,
+      "averageMultiplier": 1.8,
+      "affectedAreas": ["Downtown", "Midtown"],
+      "cause": "Morning Rush Hour",
+      "impactLevel": "high"
+    },
+    {
+      "id": "event-2",
+      "startTime": "2023-07-01T14:00:00Z",
+      "endTime": "2023-07-01T15:30:00Z",
+      "peakMultiplier": 2.0,
+      "averageMultiplier": 1.7,
+      "affectedAreas": ["Downtown", "Financial District"],
+      "cause": "Afternoon Rush Hour",
+      "impactLevel": "high"
+    },
+    {
+      "id": "event-3",
+      "startTime": "2023-07-01T18:00:00Z",
+      "endTime": "2023-07-01T20:00:00Z",
+      "peakMultiplier": 1.8,
+      "averageMultiplier": 1.6,
+      "affectedAreas": ["Midtown", "Uptown"],
+      "cause": "Evening Rush Hour",
+      "impactLevel": "medium"
+    }
+  ]
+} 

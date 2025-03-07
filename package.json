@@ -27,6 +27,8 @@
     "@types/react-dom": "^18.2.22",
     "@types/react-router-dom": "^5.3.3",
     "jest": "^29.7.0",
+    "json-server": "^0.17.4",
+    "concurrently": "^8.2.2",
     "typescript": "^4.9.5"
   },
   "scripts": {
@@ -34,7 +36,9 @@
     "build": "react-scripts build",
     "test": "react-scripts test",
     "eject": "react-scripts eject",
-    "vercel-build": "bash ./vercel-build.sh"
+    "vercel-build": "bash ./vercel-build.sh",
+    "mock-api": "node mock-api/server.js",
+    "dev": "concurrently \"npm run start\" \"npm run mock-api\""
   },
   "browserslist": {
     "production": [
@@ -55,5 +59,6 @@
   },
   "engines": {
     "node": ">=14.0.0"
-  }
+  },
+  "proxy": "http://localhost:4000"
 }
