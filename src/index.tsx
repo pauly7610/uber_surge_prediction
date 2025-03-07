@@ -35,7 +35,9 @@ const engine = new Styletron();
 // Simple query to check server connection
 const TEST_QUERY = gql`
   query TestConnection {
-    __typename
+    surgeData {
+      id
+    }
   }
 `;
 
@@ -44,6 +46,11 @@ const ApolloErrorHandler: React.FC<{children: React.ReactNode, client: ApolloCli
   const [connectionError, setConnectionError] = useState<Error | null>(null);
 
   useEffect(() => {
+    // Skip connection check if we're using mock data
+    if (process.env.NODE_ENV === 'production') {
+      return;
+    }
+    
     // Check if we can connect to the GraphQL server
     const checkConnection = async () => {
       try {
@@ -112,8 +119,5 @@ root.render(
 );
 
 // Register service worker based on environment configuration
-if (process.env.NODE_ENV === 'production') {
-  serviceWorker.register();
-} else {
-  serviceWorker.unregister();
-} 
+// Unregister service worker to avoid issues with MIME types and caching
+serviceWorker.unregister(); 

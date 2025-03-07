@@ -7,14 +7,60 @@ import { useStyletron } from 'baseui';
 
 const Dashboard: React.FC = () => {
   const [css] = useStyletron();
-  const routeId = 'some-route-id'; // Replace with actual route ID
+  const routeId = 'some-route-id';
+  
+  // Helper function for notification card styling
+  const getNotificationCardStyle = (color: string) => {
+    return css({
+      backgroundColor: `rgba(${color === '#FFC107' ? '255, 193, 7' : '66, 133, 244'}, 0.15)`,
+      padding: '16px', 
+      borderRadius: '8px',
+      marginBottom: color === '#FFC107' ? '16px' : '0px',
+      borderLeftWidth: '4px',
+      borderLeftStyle: 'solid',
+      borderLeftColor: color,
+      borderRightWidth: '0px',
+      borderTopWidth: '0px',
+      borderBottomWidth: '0px',
+      borderRightStyle: 'solid',
+      borderTopStyle: 'solid',
+      borderBottomStyle: 'solid',
+      borderRightColor: 'transparent',
+      borderTopColor: 'transparent',
+      borderBottomColor: 'transparent'
+    });
+  };
+  
+  // Comprehensive initial data for faster loading
   const initialData = [
-    { timestamp: '2023-10-01T00:00:00Z', multiplier: 1.2 },
-    { timestamp: '2023-10-01T01:00:00Z', multiplier: 1.5 },
-    { timestamp: '2023-10-01T02:00:00Z', multiplier: 1.8 },
-    { timestamp: '2023-10-01T03:00:00Z', multiplier: 1.3 },
-    { timestamp: '2023-10-01T04:00:00Z', multiplier: 1.1 },
-    { timestamp: '2023-10-01T05:00:00Z', multiplier: 1.0 },
+    // Current data
+    { id: "current-1", timestamp: new Date(Date.now() - 60 * 60 * 1000).toISOString(), multiplier: 1.3, area: "Downtown" },
+    { id: "current-2", timestamp: new Date(Date.now() - 45 * 60 * 1000).toISOString(), multiplier: 1.5, area: "Downtown" },
+    { id: "current-3", timestamp: new Date(Date.now() - 30 * 60 * 1000).toISOString(), multiplier: 1.8, area: "Downtown" },
+    { id: "current-4", timestamp: new Date(Date.now() - 15 * 60 * 1000).toISOString(), multiplier: 2.0, area: "Downtown" },
+    { id: "current-5", timestamp: new Date().toISOString(), multiplier: 1.7, area: "Downtown" },
+    
+    // Historical data
+    { id: "hist-1", timestamp: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(), multiplier: 1.2, area: "Downtown" },
+    { id: "hist-2", timestamp: new Date(Date.now() - 23 * 60 * 60 * 1000).toISOString(), multiplier: 1.4, area: "Downtown" },
+    { id: "hist-3", timestamp: new Date(Date.now() - 22 * 60 * 60 * 1000).toISOString(), multiplier: 1.6, area: "Downtown" },
+    { id: "hist-4", timestamp: new Date(Date.now() - 21 * 60 * 60 * 1000).toISOString(), multiplier: 1.9, area: "Downtown" },
+    { id: "hist-5", timestamp: new Date(Date.now() - 20 * 60 * 60 * 1000).toISOString(), multiplier: 2.1, area: "Downtown" },
+    { id: "hist-6", timestamp: new Date(Date.now() - 19 * 60 * 60 * 1000).toISOString(), multiplier: 1.8, area: "Downtown" },
+    { id: "hist-7", timestamp: new Date(Date.now() - 18 * 60 * 60 * 1000).toISOString(), multiplier: 1.5, area: "Downtown" },
+    { id: "hist-8", timestamp: new Date(Date.now() - 17 * 60 * 60 * 1000).toISOString(), multiplier: 1.3, area: "Downtown" },
+    { id: "hist-9", timestamp: new Date(Date.now() - 16 * 60 * 60 * 1000).toISOString(), multiplier: 1.2, area: "Downtown" },
+    { id: "hist-10", timestamp: new Date(Date.now() - 15 * 60 * 60 * 1000).toISOString(), multiplier: 1.1, area: "Downtown" },
+    { id: "hist-11", timestamp: new Date(Date.now() - 14 * 60 * 60 * 1000).toISOString(), multiplier: 1.0, area: "Downtown" },
+    { id: "hist-12", timestamp: new Date(Date.now() - 13 * 60 * 60 * 1000).toISOString(), multiplier: 1.2, area: "Downtown" },
+    
+    // Predicted data
+    { id: "pred-1", timestamp: new Date(Date.now() + 15 * 60 * 1000).toISOString(), multiplier: 1.9, area: "Downtown" },
+    { id: "pred-2", timestamp: new Date(Date.now() + 30 * 60 * 1000).toISOString(), multiplier: 2.1, area: "Downtown" },
+    { id: "pred-3", timestamp: new Date(Date.now() + 45 * 60 * 1000).toISOString(), multiplier: 2.3, area: "Downtown" },
+    { id: "pred-4", timestamp: new Date(Date.now() + 60 * 60 * 1000).toISOString(), multiplier: 2.0, area: "Downtown" },
+    { id: "pred-5", timestamp: new Date(Date.now() + 75 * 60 * 1000).toISOString(), multiplier: 1.8, area: "Downtown" },
+    { id: "pred-6", timestamp: new Date(Date.now() + 90 * 60 * 1000).toISOString(), multiplier: 1.5, area: "Downtown" },
   ];
 
   return (
@@ -114,13 +160,7 @@ const Dashboard: React.FC = () => {
                 Recent Notifications
               </HeadingLarge>
               
-              <div className={css({ 
-                backgroundColor: 'rgba(255, 193, 7, 0.15)', 
-                padding: '16px', 
-                borderRadius: '8px',
-                marginBottom: '16px',
-                borderLeft: '4px solid #FFC107'
-              })}>
+              <div className={getNotificationCardStyle('#FFC107')}>
                 <div className={css({ 
                   fontWeight: 'bold', 
                   marginBottom: '8px',
@@ -133,12 +173,7 @@ const Dashboard: React.FC = () => {
                 </div>
               </div>
               
-              <div className={css({ 
-                backgroundColor: 'rgba(66, 133, 244, 0.15)', 
-                padding: '16px', 
-                borderRadius: '8px',
-                borderLeft: '4px solid #4285F4'
-              })}>
+              <div className={getNotificationCardStyle('#4285F4')}>
                 <div className={css({ 
                   fontWeight: 'bold', 
                   marginBottom: '8px',

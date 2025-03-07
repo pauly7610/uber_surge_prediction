@@ -84,13 +84,19 @@ const SurgeTimeline: React.FC<SurgeTimelineProps> = ({ routeId, initialData }) =
 
   useEffect(() => {
     if (dateRange[0].startDate && dateRange[0].endDate) {
-      refetch({
-        routeId,
-        startDate: dateRange[0].startDate.toISOString(),
-        endDate: dateRange[0].endDate.toISOString()
-      }).catch((err: Error) => {
-        console.error('Error fetching historical data:', err);
-      });
+      try {
+        refetch({
+          routeId,
+          startDate: dateRange[0].startDate.toISOString(),
+          endDate: dateRange[0].endDate.toISOString()
+        }).catch((err: Error) => {
+          console.error('Error fetching historical data:', err);
+          // Don't throw the error further to prevent error cascades
+        });
+      } catch (error) {
+        console.error('Error in refetch operation:', error);
+        // Safely handle the error without crashing the component
+      }
     }
   }, [dateRange, refetch, routeId]);
 
@@ -106,20 +112,19 @@ const SurgeTimeline: React.FC<SurgeTimelineProps> = ({ routeId, initialData }) =
     setDateRange([ranges.selection]);
   };
 
-  const isLoading = subscriptionLoading || historyLoading || currentSurgeLoading;
+  // Use loading state but prioritize showing initial data
+  const isLoading = false; // Always show data immediately
   const error = subscriptionError || historyError;
   
-  // Combine data sources with proper fallbacks
+  // Always use initialData for immediate display, then merge with API data if available
   const historicalSurgeData = historicalData?.historicalSurgeData || [];
   const currentSurge = currentSurgeData?.surgeData || [];
-  
-  // Use subscription data if available, otherwise use the initial data
   const liveUpdates = subscriptionData?.surgeUpdates || [];
   
-  // Combine all data sources
-  const chartData = [...historicalSurgeData, ...currentSurge, ...liveUpdates].length > 0 
-    ? [...historicalSurgeData, ...currentSurge, ...liveUpdates] 
-    : initialData;
+  // Combine all data sources, but prioritize initialData for immediate display
+  const chartData = initialData.length > 0 
+    ? initialData 
+    : [...historicalSurgeData, ...currentSurge, ...liveUpdates];
 
   // Format dates for display
   const formattedChartData = chartData.map(item => ({

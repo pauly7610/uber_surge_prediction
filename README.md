@@ -7,9 +7,10 @@ A React application for predicting and visualizing Uber surge pricing, allowing 
 - Real-time surge pricing visualization
 - Predictive surge timeline
 - Price locking functionality
-- Driver heatmap visualization
+- Driver heatmap visualization with realistic San Francisco map
 - Notification system for surge alerts
 - Dark/light theme support
+- Responsive design for mobile and desktop
 
 ## Tech Stack
 
@@ -18,6 +19,7 @@ A React application for predicting and visualizing Uber surge pricing, allowing 
 - Apollo Client for GraphQL
 - Base Web UI framework
 - Recharts for data visualization
+- SVG for custom map rendering
 - PWA support with service workers
 
 ## Getting Started
@@ -52,7 +54,7 @@ A React application for predicting and visualizing Uber surge pricing, allowing 
    # or
    yarn dev
    ```
-   This will start both the React app and the mock API server.
+   This will start both the React app on port 8000 and the mock API server on port 5000.
 
 ## Mock API
 
@@ -60,7 +62,7 @@ The application includes a mock API that simulates the GraphQL backend:
 
 ### Local Development
 
-- When running locally, the mock API is served from a JSON Server instance
+- When running locally, the mock API is served from a JSON Server instance on port 5000
 - Start it with `npm run mock-api` or use `npm run dev` to start both the app and API
 
 ### Vercel Deployment
@@ -115,12 +117,43 @@ The application uses the following environment variables:
 
 ## Available Scripts
 
-- `npm start`: Runs just the React app in development mode
-- `npm run mock-api`: Runs just the mock API server
+- `npm start`: Runs the React app in development mode on port 3000
+- `npm run start-windows`: Runs the React app in development mode on port 8000 (Windows compatible)
+- `npm run mock-api`: Runs just the mock API server on port 5000
 - `npm run dev`: Runs both the React app and mock API server concurrently
 - `npm test`: Launches the test runner
 - `npm run build`: Builds the app for production
 - `npm run eject`: Ejects from Create React App
+
+## Key Features
+
+### Driver Heatmap Visualization
+
+The application includes a sophisticated heatmap visualization that displays driver demand across San Francisco:
+
+- **Realistic San Francisco Map**: Custom SVG rendering of San Francisco with accurate geography
+- **Detailed City Elements**: Includes major landmarks, neighborhoods, parks, and bridges
+- **Dynamic Hotspots**: Heat points that indicate areas of high demand
+- **Time-based Variation**: Demand patterns that change based on selected timeframe
+- **Color Gradient**: Multi-color gradient from blue (low demand) to red (high demand)
+- **Animated Effects**: Pulse animations for high-demand areas
+
+### Surge Timeline
+
+The surge timeline provides predictive pricing information:
+
+- **Price Forecasting**: Shows predicted surge prices over time
+- **Interactive Timeline**: Users can select different time points
+- **Price Locking**: Ability to lock in current prices for a limited time
+- **Trend Indicators**: Visual indicators for rising and falling prices
+
+### Notification System
+
+Stay informed about surge pricing changes:
+
+- **Custom Alerts**: Set alerts for specific price thresholds
+- **Push Notifications**: Receive notifications when conditions are met
+- **Notification History**: View past notifications and their details
 
 ## Deployment
 
@@ -142,7 +175,7 @@ src/
 ├── api/              # Serverless API functions for Vercel
 ├── components/       # UI components
 │   ├── common/       # Shared components
-│   ├── Driver/       # Driver-related components
+│   ├── Driver/       # Driver-related components including heatmap
 │   ├── Layout/       # Layout components
 │   ├── Notifications/# Notification components
 │   ├── PriceLock/    # Price lock components
@@ -161,6 +194,38 @@ src/
 └── serviceWorker.ts  # Service worker for PWA support
 ```
 
+## Technical Implementation Details
+
+### SVG Map Rendering
+
+The San Francisco map is implemented as a custom SVG with:
+
+- Accurate geographical representation of the peninsula
+- Water areas (Pacific Ocean and San Francisco Bay)
+- Street grid with major arterial roads
+- Neighborhood boundaries
+- Landmarks and points of interest
+- Dynamic styling for better visualization
+
+### GraphQL Integration
+
+The application uses Apollo Client for GraphQL integration:
+
+- Queries for fetching data
+- Mutations for updating data
+- Subscriptions for real-time updates
+- Error handling and loading states
+- Optimistic UI updates
+
+### Responsive Design
+
+The application is fully responsive:
+
+- Mobile-first approach
+- Adaptive layouts for different screen sizes
+- Touch-friendly interactions
+- Optimized performance on mobile devices
+
 ## Contributing
 
 1. Fork the repository
@@ -177,3 +242,4 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 - Based on the PRD for Intelligent Surge Prediction System
 - Uses Base Web UI components from Uber
+- Custom San Francisco map visualization

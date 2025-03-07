@@ -1,5 +1,11 @@
 #!/bin/bash
 
+# Exit on error
+set -e
+
+# Print commands for debugging
+set -x
+
 # Install dependencies with legacy peer deps
 npm install --legacy-peer-deps
 
@@ -38,6 +44,22 @@ fi
 
 # Build the application
 npm run build
+
+# Copy mock data to build directory
+echo "Copying mock data to build directory..."
+cp db.json build/
+
+# Create a simple API endpoint for health checks
+mkdir -p build/api
+cat > build/api/health.js << 'EOL'
+module.exports = (req, res) => {
+  res.status(200).json({
+    status: 'ok',
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV || 'unknown'
+  });
+};
+EOL
 
 # Output success message
 echo "Build completed successfully!" 
