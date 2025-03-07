@@ -2,7 +2,10 @@ const jsonServer = require('json-server');
 const server = jsonServer.create();
 const router = jsonServer.router('./db.json');
 const middlewares = jsonServer.defaults();
-const port = process.env.PORT || 5000;
+const defaultPort = process.env.PORT || 5000;
+let port = defaultPort;
+const http = require('http');
+const httpServer = http.createServer(server);
 
 // Set default middlewares (logger, static, cors and no-cache)
 server.use(middlewares);
@@ -12,87 +15,152 @@ server.use(jsonServer.bodyParser);
 
 // GraphQL-like endpoint for queries
 server.post('/graphql', (req, res) => {
-  const { query, variables } = req.body;
-  
-  // Simple query parser (this is a very basic implementation)
-  if (query.includes('GetSurgeData')) {
-    res.jsonp({
-      data: {
-        surgeData: router.db.get('surgeData').value()
-      }
-    });
-  } 
-  else if (query.includes('GetHistoricalSurgeData')) {
-    const routeId = variables?.routeId || 'default-route-id';
-    const startDate = variables?.startDate;
-    const endDate = variables?.endDate;
+  try {
+    // Check if the request body is valid
+    if (!req.body) {
+      return res.status(400).jsonp({
+        errors: [{ message: 'Invalid request: Missing request body' }]
+      });
+    }
+
+    const { query, variables } = req.body;
     
-    let historicalData = router.db.get('historicalSurgeData').value();
-    
-    // Filter by date if provided
-    if (startDate && endDate) {
-      historicalData = historicalData.filter(item => {
-        const timestamp = new Date(item.timestamp);
-        const start = new Date(startDate);
-        const end = new Date(endDate);
-        return timestamp >= start && timestamp <= end;
+    // Check if query is provided
+    if (!query) {
+      return res.status(400).jsonp({
+        errors: [{ message: 'Invalid request: Missing GraphQL query' }]
       });
     }
     
-    res.jsonp({
-      data: {
-        historicalSurgeData: historicalData
-      }
-    });
-  }
-  else if (query.includes('GetPredictedSurgeData')) {
-    res.jsonp({
-      data: {
-        predictedSurgeData: router.db.get('predictedSurgeData').value()
-      }
-    });
-  }
-  else if (query.includes('GetDriverHeatmapData')) {
-    const timeframe = variables?.timeframe || 'current';
+    console.log(`GraphQL Query: ${query.substring(0, 100)}${query.length > 100 ? '...' : ''}`);
+    console.log('Variables:', variables || {});
     
-    res.jsonp({
-      data: {
-        driverHeatmapData: router.db.get('driverHeatmapData').value()
+    // Handle TestConnection query
+    if (query.includes('TestConnection')) {
+      return res.jsonp({
+        data: {
+          __typename: 'Query'
+        }
+      });
+    }
+    
+    // Simple query parser (this is a very basic implementation)
+    if (query.includes('GetSurgeData')) {
+      const surgeData = router.db.get('surgeData').value();
+      
+      // Check if data exists
+      if (!surgeData) {
+        return res.status(404).jsonp({
+          errors: [{ message: 'Surge data not found' }]
+        });
       }
-    });
-  }
-  else if (query.includes('GetDriverPositioningIncentives')) {
-    res.jsonp({
-      data: {
-        driverPositioningIncentives: router.db.get('driverPositioningIncentives').value()
+      
+      res.jsonp({
+        data: {
+          surgeData: surgeData
+        }
+      });
+    } 
+    else if (query.includes('GetHistoricalSurgeData')) {
+      const routeId = variables?.routeId || 'default-route-id';
+      const startDate = variables?.startDate;
+      const endDate = variables?.endDate;
+      
+      let historicalData = router.db.get('historicalSurgeData').value();
+      
+      // Check if data exists
+      if (!historicalData) {
+        return res.status(404).jsonp({
+          errors: [{ message: 'Historical surge data not found' }]
+        });
       }
-    });
-  }
-  else if (query.includes('GetUserPreferences')) {
-    res.jsonp({
-      data: {
-        userPreferences: router.db.get('userPreferences').value()
+      
+      // Filter by date if provided
+      if (startDate && endDate) {
+        try {
+          historicalData = historicalData.filter(item => {
+            if (!item || !item.timestamp) return false;
+            
+            const timestamp = new Date(item.timestamp);
+            const start = new Date(startDate);
+            const end = new Date(endDate);
+            return timestamp >= start && timestamp <= end;
+          });
+        } catch (filterError) {
+          console.error('Error filtering historical data:', filterError);
+          return res.status(400).jsonp({
+            errors: [{ 
+              message: 'Error filtering data by date range',
+              details: filterError.message,
+              stack: process.env.NODE_ENV === 'development' ? filterError.stack : undefined
+            }]
+          });
+        }
       }
-    });
-  }
-  else if (query.includes('GetPriceLocks')) {
-    res.jsonp({
-      data: {
-        priceLocks: router.db.get('priceLocks').value()
-      }
-    });
-  }
-  else if (query.includes('GetSurgeEvents')) {
-    res.jsonp({
-      data: {
-        surgeEvents: router.db.get('surgeEvents').value()
-      }
-    });
-  }
-  else {
-    // Default response for unknown queries
-    res.status(400).jsonp({
-      errors: [{ message: 'Unknown query' }]
+      
+      res.jsonp({
+        data: {
+          historicalSurgeData: historicalData
+        }
+      });
+    }
+    else if (query.includes('GetPredictedSurgeData')) {
+      res.jsonp({
+        data: {
+          predictedSurgeData: router.db.get('predictedSurgeData').value()
+        }
+      });
+    }
+    else if (query.includes('GetDriverHeatmapData')) {
+      const timeframe = variables?.timeframe || 'current';
+      
+      res.jsonp({
+        data: {
+          driverHeatmapData: router.db.get('driverHeatmapData').value()
+        }
+      });
+    }
+    else if (query.includes('GetDriverPositioningIncentives')) {
+      res.jsonp({
+        data: {
+          driverPositioningIncentives: router.db.get('driverPositioningIncentives').value()
+        }
+      });
+    }
+    else if (query.includes('GetUserPreferences')) {
+      res.jsonp({
+        data: {
+          userPreferences: router.db.get('userPreferences').value()
+        }
+      });
+    }
+    else if (query.includes('GetPriceLocks')) {
+      res.jsonp({
+        data: {
+          priceLocks: router.db.get('priceLocks').value()
+        }
+      });
+    }
+    else if (query.includes('GetSurgeEvents')) {
+      res.jsonp({
+        data: {
+          surgeEvents: router.db.get('surgeEvents').value()
+        }
+      });
+    }
+    else {
+      // Default response for unknown queries
+      res.status(400).jsonp({
+        errors: [{ message: 'Unknown query' }]
+      });
+    }
+  } catch (error) {
+    console.error('GraphQL Error:', error);
+    res.status(500).jsonp({
+      errors: [{ 
+        message: `Internal server error: ${error.message}`,
+        stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      }]
     });
   }
 });
@@ -235,12 +303,29 @@ server.get('/graphql/subscriptions/notifications', (req, res) => {
 
 // Add a catch-all handler for the base /graphql/subscriptions endpoint
 server.get('/graphql/subscriptions', (req, res) => {
+  // Set headers for better WebSocket simulation
+  res.setHeader('Content-Type', 'application/json');
+  res.setHeader('Connection', 'keep-alive');
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  
   // Return a simple acknowledgment for WebSocket connection attempts
   res.jsonp({
     data: {
       message: "WebSocket simulation endpoint. Use specific subscription endpoints for data."
     }
   });
+});
+
+// Add a handler for WebSocket protocol upgrade requests
+server.options('/graphql/subscriptions', (req, res) => {
+  res.setHeader('Content-Type', 'application/json');
+  res.setHeader('Connection', 'keep-alive');
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Sec-WebSocket-Protocol, Sec-WebSocket-Version, Sec-WebSocket-Key');
+  res.status(200).end();
 });
 
 // Surge updates subscription simulation
@@ -291,10 +376,30 @@ server.get('/graphql/subscriptions/driver-positions', (req, res) => {
 // Use default router
 server.use(router);
 
-// Start server
-server.listen(port, () => {
-  console.log(`JSON Server is running on port ${port}`);
-  console.log(`GraphQL endpoint: http://localhost:${port}/graphql`);
-  console.log(`GraphQL mutations: http://localhost:${port}/graphql/mutations`);
-  console.log(`GraphQL subscriptions: http://localhost:${port}/graphql/subscriptions/*`);
-}); 
+// Handle WebSocket connections for subscriptions
+server.get('/graphql/subscriptions', (req, res) => {
+  res.status(200).send('WebSocket endpoint for subscriptions. Use ws:// protocol to connect.');
+});
+
+// Start the server
+try {
+  httpServer.listen(port, () => {
+    console.log(`JSON Server is running on port ${port}`);
+    console.log(`GraphQL endpoint: http://localhost:${port}/graphql`);
+    console.log(`GraphQL mutations: http://localhost:${port}/graphql/mutations`);
+    console.log(`GraphQL subscriptions: http://localhost:${port}/graphql/subscriptions/*`);
+  });
+} catch (err) {
+  if (err.code === 'EADDRINUSE') {
+    console.log(`Port ${port} is already in use. Trying port ${port + 1}...`);
+    port = port + 1;
+    httpServer.listen(port, () => {
+      console.log(`JSON Server is running on port ${port}`);
+      console.log(`GraphQL endpoint: http://localhost:${port}/graphql`);
+      console.log(`GraphQL mutations: http://localhost:${port}/graphql/mutations`);
+      console.log(`GraphQL subscriptions: http://localhost:${port}/graphql/subscriptions/*`);
+    });
+  } else {
+    console.error('Server error:', err);
+  }
+} 

@@ -1,1 +1,226 @@
-{}
+{
+  "surgeData": [
+    {
+      "id": "surge-1",
+      "multiplier": 1.5,
+      "area": "Downtown",
+      "timestamp": "2023-03-07T12:00:00Z",
+      "duration": 30,
+      "demand": "high"
+    },
+    {
+      "id": "surge-2",
+      "multiplier": 2.0,
+      "area": "Airport",
+      "timestamp": "2023-03-07T13:00:00Z",
+      "duration": 45,
+      "demand": "very-high"
+    },
+    {
+      "id": "surge-3",
+      "multiplier": 1.2,
+      "area": "Suburbs",
+      "timestamp": "2023-03-07T14:00:00Z",
+      "duration": 20,
+      "demand": "medium"
+    }
+  ],
+  "historicalSurgeData": [
+    {
+      "id": "hist-1",
+      "routeId": "some-route-id",
+      "multiplier": 1.3,
+      "timestamp": "2023-03-01T12:00:00Z",
+      "demand": "medium"
+    },
+    {
+      "id": "hist-2",
+      "routeId": "some-route-id",
+      "multiplier": 1.8,
+      "timestamp": "2023-03-02T13:00:00Z",
+      "demand": "high"
+    },
+    {
+      "id": "hist-3",
+      "routeId": "some-route-id",
+      "multiplier": 2.2,
+      "timestamp": "2023-03-03T14:00:00Z",
+      "demand": "very-high"
+    },
+    {
+      "id": "hist-4",
+      "routeId": "some-route-id",
+      "multiplier": 1.5,
+      "timestamp": "2023-03-04T15:00:00Z",
+      "demand": "medium"
+    },
+    {
+      "id": "hist-5",
+      "routeId": "some-route-id",
+      "multiplier": 1.2,
+      "timestamp": "2023-03-05T16:00:00Z",
+      "demand": "low"
+    }
+  ],
+  "predictedSurgeData": [
+    {
+      "id": "pred-1",
+      "multiplier": 1.7,
+      "area": "Downtown",
+      "timestamp": "2023-03-08T12:00:00Z",
+      "confidence": 0.85,
+      "demand": "high"
+    },
+    {
+      "id": "pred-2",
+      "multiplier": 2.1,
+      "area": "Airport",
+      "timestamp": "2023-03-08T13:00:00Z",
+      "confidence": 0.92,
+      "demand": "very-high"
+    },
+    {
+      "id": "pred-3",
+      "multiplier": 1.4,
+      "area": "Suburbs",
+      "timestamp": "2023-03-08T14:00:00Z",
+      "confidence": 0.78,
+      "demand": "medium"
+    }
+  ],
+  "driverHeatmapData": [
+    {
+      "id": "heat-1",
+      "latitude": 37.7749,
+      "longitude": -122.4194,
+      "intensity": 0.8,
+      "timestamp": "2023-03-07T12:00:00Z"
+    },
+    {
+      "id": "heat-2",
+      "latitude": 37.7833,
+      "longitude": -122.4167,
+      "intensity": 0.6,
+      "timestamp": "2023-03-07T12:00:00Z"
+    },
+    {
+      "id": "heat-3",
+      "latitude": 37.7694,
+      "longitude": -122.4862,
+      "intensity": 0.9,
+      "timestamp": "2023-03-07T12:00:00Z"
+    }
+  ],
+  "driverPositioningIncentives": [
+    {
+      "id": "incentive-1",
+      "area": "Downtown",
+      "amount": 5.00,
+      "multiplier": 1.2,
+      "expiresAt": "2023-03-07T14:00:00Z",
+      "demand": "high"
+    },
+    {
+      "id": "incentive-2",
+      "area": "Airport",
+      "amount": 8.00,
+      "multiplier": 1.5,
+      "expiresAt": "2023-03-07T15:00:00Z",
+      "demand": "very-high"
+    },
+    {
+      "id": "incentive-3",
+      "area": "Suburbs",
+      "amount": 3.00,
+      "multiplier": 1.1,
+      "expiresAt": "2023-03-07T13:00:00Z",
+      "demand": "medium"
+    }
+  ],
+  "userPreferences": {
+    "id": "user-1",
+    "notificationPreferences": {
+      "surgeAlerts": true,
+      "priceLockReminders": true,
+      "promotions": false,
+      "driverPositioning": true
+    },
+    "displayPreferences": {
+      "darkMode": true,
+      "mapStyle": "satellite",
+      "language": "en-US"
+    },
+    "routePreferences": [
+      {
+        "id": "route-1",
+        "name": "Home to Work",
+        "origin": "123 Home St",
+        "destination": "456 Work Ave",
+        "frequency": "weekdays"
+      },
+      {
+        "id": "route-2",
+        "name": "Work to Gym",
+        "origin": "456 Work Ave",
+        "destination": "789 Gym Blvd",
+        "frequency": "weekdays"
+      }
+    ]
+  },
+  "priceLocks": [
+    {
+      "id": "lock-1",
+      "routeId": "route-1",
+      "multiplier": 1.2,
+      "originalPrice": 25.00,
+      "lockedPrice": 30.00,
+      "currentPrice": 35.00,
+      "savings": 5.00,
+      "createdAt": "2023-03-06T12:00:00Z",
+      "expiresAt": "2023-03-07T12:00:00Z",
+      "status": "active",
+      "route": {
+        "origin": "123 Home St",
+        "destination": "456 Work Ave"
+      }
+    }
+  ],
+  "surgeEvents": [
+    {
+      "id": "event-1",
+      "name": "Concert at Stadium",
+      "location": "City Stadium",
+      "startTime": "2023-03-10T19:00:00Z",
+      "endTime": "2023-03-10T23:00:00Z",
+      "expectedMultiplier": 2.5,
+      "description": "Major concert event with 50,000 attendees"
+    },
+    {
+      "id": "event-2",
+      "name": "Sports Game",
+      "location": "Arena Center",
+      "startTime": "2023-03-12T18:00:00Z",
+      "endTime": "2023-03-12T21:00:00Z",
+      "expectedMultiplier": 2.0,
+      "description": "Championship game with high attendance expected"
+    }
+  ],
+  "notifications": [
+    {
+      "id": "notif-1",
+      "type": "surge-alert",
+      "title": "Surge Pricing Alert",
+      "message": "Surge pricing (2.0x) is active in your area",
+      "timestamp": "2023-03-07T11:30:00Z",
+      "read": false
+    },
+    {
+      "id": "notif-2",
+      "type": "price-lock",
+      "title": "Price Lock Expiring",
+      "message": "Your price lock for Home to Work expires in 30 minutes",
+      "timestamp": "2023-03-07T11:30:00Z",
+      "read": true
+    }
+  ]
+}

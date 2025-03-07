@@ -36,9 +36,11 @@ const Heatmap: React.FC<HeatmapProps> = ({ data, width, height }) => {
         width: `${width}px`,
         height: `${height}px`,
         backgroundColor: '#f0f0f0',
-        backgroundImage: 'url(/map-background.png)',
+        backgroundImage: 'linear-gradient(to bottom, #e6e6e6, #ffffff)',
         backgroundSize: 'cover',
         border: '1px solid #ccc',
+        borderRadius: '4px',
+        boxShadow: 'inset 0 0 10px rgba(0,0,0,0.1)'
       })}
     >
       {data.map((cell, index) => (
@@ -54,6 +56,7 @@ const Heatmap: React.FC<HeatmapProps> = ({ data, width, height }) => {
             backgroundColor: getColor(cell.value),
             transform: 'translate(-50%, -50%)',
             opacity: 0.7,
+            boxShadow: '0 0 8px rgba(255,0,0,0.5)'
           })}
         />
       ))}

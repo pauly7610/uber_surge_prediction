@@ -13,7 +13,12 @@ const App: React.FC = () => {
     <ErrorBoundary>
       <ThemeProvider>
         <NotificationProvider>
-          <Router>
+          <Router
+            future={{
+              v7_startTransition: true,
+              v7_relativeSplatPath: true
+            }}
+          >
             <Layout>
               <Routes>
                 <Route path="/" element={<Dashboard />} />

@@ -60,8 +60,41 @@ const rawWsUri = getEnvVariable(
     : 'ws://localhost:5000/graphql/subscriptions'
 );
 
-export const GRAPHQL_HTTP_URI = resolveUrl(rawHttpUri);
-export const GRAPHQL_WS_URI = resolveUrl(rawWsUri);
+// Helper to extract port from proxy setting in package.json
+const getProxyPort = () => {
+  try {
+    // In browser environment, we can use the proxy from package.json
+    if (typeof window !== 'undefined') {
+      // If we're already using the API directly, no need to modify
+      if (rawHttpUri.includes('://localhost:')) {
+        return null;
+      }
+      
+      // Check if we're being proxied through the React dev server
+      const currentPort = window.location.port;
+      if (currentPort) {
+        // We're in development with a proxy
+        return null; // Let the proxy handle it
+      }
+    }
+    return null;
+  } catch (e) {
+    console.warn('Error detecting proxy port:', e);
+    return null;
+  }
+};
+
+// Apply proxy port if needed
+const applyProxyPort = (url: string) => {
+  const proxyPort = getProxyPort();
+  if (proxyPort && url.includes('://localhost:')) {
+    return url.replace(/localhost:\d+/, `localhost:${proxyPort}`);
+  }
+  return url;
+};
+
+export const GRAPHQL_HTTP_URI = resolveUrl(applyProxyPort(rawHttpUri));
+export const GRAPHQL_WS_URI = resolveUrl(applyProxyPort(rawWsUri));
 
 // Feature Flags
 export const ENABLE_NOTIFICATIONS = getBooleanEnvVariable('REACT_APP_ENABLE_NOTIFICATIONS', true);

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import ReactDOM from 'react-dom';
+import ReactDOM from 'react-dom/client';
 import { ApolloProvider, ApolloClient, gql } from '@apollo/client';
 import { Client as Styletron } from 'styletron-engine-atomic';
 import { Provider as StyletronProvider } from 'styletron-react';
@@ -89,8 +89,13 @@ const ThemedApp = () => {
   );
 };
 
-// Render the app using ReactDOM.render for compatibility
-ReactDOM.render(
+// Create a root using the new React 18 API
+const rootElement = document.getElementById('root');
+if (!rootElement) throw new Error('Failed to find the root element');
+const root = ReactDOM.createRoot(rootElement);
+
+// Render the app using the new createRoot API
+root.render(
   <React.StrictMode>
     <ErrorBoundary>
       <StyletronProvider value={engine}>
@@ -103,8 +108,7 @@ ReactDOM.render(
         </ApolloProvider>
       </StyletronProvider>
     </ErrorBoundary>
-  </React.StrictMode>,
-  document.getElementById('root')
+  </React.StrictMode>
 );
 
 // Register service worker based on environment configuration

@@ -67,24 +67,41 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       ...item,
       active: item.info.path === location.pathname
     }));
-    setMainItems(updatedMainItems);
-  }, [location.pathname, mainItems]);
+    
+    // Compare if the active state actually changed to prevent infinite loops
+    const activeStateChanged = updatedMainItems.some(
+      (item, index) => item.active !== mainItems[index].active
+    );
+    
+    if (activeStateChanged) {
+      setMainItems(updatedMainItems);
+    }
+  }, [location.pathname]); // Remove mainItems from dependencies
   
   return (
-    <div>
-      <AppNavBar
-        title={isMobile ? "Surge" : "Uber Surge Prediction"}
-        mainItems={mainItems}
-        onMainItemSelect={item => {
-          navigate(item.info.path);
-        }}
-        username="User"
-        userItems={[
-          { icon: ProfileIcon, label: 'Profile' },
-          { icon: LogoutIcon, label: 'Logout' },
-        ]}
-        onUserItemSelect={() => {}}
-      />
+    <div className={css({
+      backgroundColor: '#121212',
+      minHeight: '100vh'
+    })}>
+      <div className={css({
+        backgroundColor: '#1E1E1E',
+        borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
+        boxShadow: '0 2px 10px rgba(0, 0, 0, 0.2)'
+      })}>
+        <AppNavBar
+          title={isMobile ? "Surge" : "Uber Surge Prediction"}
+          mainItems={mainItems}
+          onMainItemSelect={item => {
+            navigate(item.info.path);
+          }}
+          username="User"
+          userItems={[
+            { icon: ProfileIcon, label: 'Profile' },
+            { icon: LogoutIcon, label: 'Logout' },
+          ]}
+          onUserItemSelect={() => {}}
+        />
+      </div>
       
       <div className={css({ 
         position: 'absolute', 
@@ -92,14 +109,14 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
         right: isMobile ? '16px' : '80px',
         display: 'flex',
         alignItems: 'center',
-        gap: '12px'
+        gap: '12px',
+        zIndex: 100
       })}>
         <ThemeToggle />
         <NotificationCenter />
       </div>
       
       <div className={css({ 
-        padding: isMobile ? '16px' : '24px',
         maxWidth: '1200px',
         margin: '0 auto'
       })}>

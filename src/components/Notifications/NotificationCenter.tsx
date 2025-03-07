@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Button } from 'baseui/button';
-import { StatefulPopover } from 'baseui/popover';
+import { Popover } from 'baseui/popover';
 import { Notification as BaseNotification } from 'baseui/notification';
 import { useStyletron } from 'baseui';
 import { Overflow } from 'baseui/icon';
@@ -66,10 +66,13 @@ const NotificationItem: React.FC<{
 const NotificationCenter: React.FC = () => {
   const { notifications, markAsRead, clearAll, hasUnread } = useNotifications();
   const [css] = useStyletron();
+  const [isOpen, setIsOpen] = useState(false);
 
   return (
-    <StatefulPopover
-      content={({ close }) => (
+    <Popover
+      isOpen={isOpen}
+      onClickOutside={() => setIsOpen(false)}
+      content={() => (
         <div className={css({
           padding: '16px',
           maxHeight: '400px',
@@ -101,11 +104,13 @@ const NotificationCenter: React.FC = () => {
         </div>
       )}
       placement="bottomRight"
+      accessibilityType="menu"
     >
       <Button
         kind="tertiary"
         shape="round"
         size="compact"
+        onClick={() => setIsOpen(!isOpen)}
         overrides={{
           BaseButton: {
             style: {
@@ -127,7 +132,7 @@ const NotificationCenter: React.FC = () => {
           })} />
         )}
       </Button>
-    </StatefulPopover>
+    </Popover>
   );
 };
 
