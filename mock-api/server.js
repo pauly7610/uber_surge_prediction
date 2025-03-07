@@ -2,7 +2,7 @@ const jsonServer = require('json-server');
 const server = jsonServer.create();
 const router = jsonServer.router('./db.json');
 const middlewares = jsonServer.defaults();
-const port = process.env.PORT || 4000;
+const port = process.env.PORT || 5000;
 
 // Set default middlewares (logger, static, cors and no-cache)
 server.use(middlewares);
@@ -231,6 +231,16 @@ server.get('/graphql/subscriptions/notifications', (req, res) => {
       }
     });
   }
+});
+
+// Add a catch-all handler for the base /graphql/subscriptions endpoint
+server.get('/graphql/subscriptions', (req, res) => {
+  // Return a simple acknowledgment for WebSocket connection attempts
+  res.jsonp({
+    data: {
+      message: "WebSocket simulation endpoint. Use specific subscription endpoints for data."
+    }
+  });
 });
 
 // Surge updates subscription simulation

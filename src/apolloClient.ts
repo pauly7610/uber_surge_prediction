@@ -1,5 +1,6 @@
 import { ApolloClient, InMemoryCache, split, HttpLink, ApolloLink } from '@apollo/client';
 import { getMainDefinition } from '@apollo/client/utilities';
+import { SubscriptionClient } from 'subscriptions-transport-ws';
 import { WebSocketLink } from '@apollo/client/link/ws';
 import config from './utils/config';
 
@@ -14,8 +15,13 @@ const mutationLink = new ApolloLink((operation, forward) => {
   const definition = getMainDefinition(operation.query);
   if (definition.kind === 'OperationDefinition' && definition.operation === 'mutation') {
     // Change the URI for mutations
+    const baseUri = config.graphql.httpUri;
+    const mutationUri = baseUri.endsWith('/') 
+      ? `${baseUri}mutations` 
+      : `${baseUri}/mutations`;
+      
     operation.setContext({
-      uri: config.isVercel ? '/api/graphql/mutations' : `${config.graphql.httpUri}/mutations`,
+      uri: mutationUri,
     });
   }
   return forward(operation);
@@ -29,29 +35,44 @@ const httpMutationLink = ApolloLink.from([mutationLink, httpLink]);
 // but we keep it for when a real GraphQL server is available
 let wsLink;
 
+// Create a subscription HTTP polling fallback
+const createHttpPollingFallback = () => {
+  console.info('Using HTTP polling fallback for subscriptions');
+  const baseUri = config.graphql.httpUri;
+  const subscriptionUri = baseUri.endsWith('/') 
+    ? `${baseUri}subscriptions/notifications` 
+    : `${baseUri}/subscriptions/notifications`;
+    
+  return new HttpLink({
+    uri: subscriptionUri,
+  });
+};
+
 // In Vercel environment, we'll use HTTP polling instead of WebSockets
 if (config.isVercel) {
   // Create a polling link that simulates subscriptions
-  wsLink = new HttpLink({
-    uri: '/api/graphql/subscriptions/notifications',
-  });
+  wsLink = createHttpPollingFallback();
 } else {
   try {
-    wsLink = new WebSocketLink({
-      uri: config.graphql.wsUri,
-      options: {
-        reconnect: true,
-        connectionParams: {
-          // Add authentication if needed
+    // Only attempt WebSocket connection if we're in a browser environment
+    if (typeof window !== 'undefined') {
+      wsLink = new WebSocketLink({
+        uri: config.graphql.wsUri,
+        options: {
+          reconnect: true,
+          connectionParams: {
+            // Add authentication if needed
+          },
+          // Don't log connection errors to console
+          lazy: true,
         },
-      },
-    });
+      });
+    } else {
+      wsLink = createHttpPollingFallback();
+    }
   } catch (error) {
     console.warn('WebSocket connection failed, falling back to HTTP for subscriptions');
-    // Create a fallback for subscriptions that uses HTTP
-    wsLink = new HttpLink({
-      uri: `${config.graphql.httpUri}/subscriptions/notifications`,
-    });
+    wsLink = createHttpPollingFallback();
   }
 }
 

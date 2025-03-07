@@ -106,7 +106,7 @@ const DriverPositioning: React.FC = () => {
                     },
                   },
                 }}
-                startEnhancer={() => <ArrowUp size={16} />}
+                startEnhancer={<ArrowUp size={16} />}
               >
                 Navigate to Area
               </Button>

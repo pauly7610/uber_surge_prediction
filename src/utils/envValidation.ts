@@ -19,6 +19,7 @@ const REQUIRED_ENV_VARS = [
  */
 export const validateEnvVariables = (): boolean => {
   const missingVars: string[] = [];
+  const isDevelopment = process.env.NODE_ENV === 'development';
 
   REQUIRED_ENV_VARS.forEach(varName => {
     if (!process.env[varName]) {
@@ -27,7 +28,13 @@ export const validateEnvVariables = (): boolean => {
   });
 
   if (missingVars.length > 0) {
-    console.error('Missing required environment variables:', missingVars);
+    if (isDevelopment) {
+      console.warn('⚠️ Missing environment variables in development mode:', missingVars);
+      console.info('ℹ️ Using default values for development. This is expected in local development.');
+    } else {
+      console.error('🚨 Missing required environment variables in production:', missingVars);
+      console.error('This may cause the application to behave incorrectly.');
+    }
     return false;
   }
 

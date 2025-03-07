@@ -13,20 +13,55 @@ import {
 const isBuildEnv = process.env.NODE_ENV === 'production' && process.env.VERCEL;
 const isVercel = !!process.env.VERCEL;
 
+// Helper to get the base URL for API endpoints
+const getBaseUrl = () => {
+  // In the browser, use the current origin
+  if (typeof window !== 'undefined') {
+    return window.location.origin;
+  }
+  
+  // In SSR or during build, use a placeholder that will be replaced at runtime
+  return '';
+};
+
+// Resolve a relative URL to an absolute URL
+const resolveUrl = (relativeUrl: string): string => {
+  // If it's already an absolute URL, return it as is
+  if (relativeUrl.startsWith('http://') || relativeUrl.startsWith('https://') || relativeUrl.startsWith('ws://') || relativeUrl.startsWith('wss://')) {
+    return relativeUrl;
+  }
+  
+  // For local development, use the provided URL as is
+  if (!isVercel && process.env.NODE_ENV === 'development') {
+    return relativeUrl;
+  }
+  
+  // For production, resolve to an absolute URL
+  const baseUrl = getBaseUrl();
+  
+  // Ensure the URL starts with a slash
+  const normalizedUrl = relativeUrl.startsWith('/') ? relativeUrl : `/${relativeUrl}`;
+  
+  return `${baseUrl}${normalizedUrl}`;
+};
+
 // GraphQL API Endpoints
-export const GRAPHQL_HTTP_URI = getEnvVariable(
+const rawHttpUri = getEnvVariable(
   'REACT_APP_GRAPHQL_HTTP_URI', 
   isVercel 
-    ? '/api/graphql' // Use Vercel API route in production
-    : 'http://localhost:4000/graphql'
+    ? 'api/graphql' // Use Vercel API route in production
+    : 'http://localhost:5000/graphql'
 );
 
-export const GRAPHQL_WS_URI = getEnvVariable(
+const rawWsUri = getEnvVariable(
   'REACT_APP_GRAPHQL_WS_URI', 
   isVercel
-    ? '/api/graphql/subscriptions' // Use Vercel API route in production
-    : 'ws://localhost:4000/graphql/subscriptions'
+    ? 'api/graphql/subscriptions' // Use Vercel API route in production
+    : 'ws://localhost:5000/graphql/subscriptions'
 );
+
+export const GRAPHQL_HTTP_URI = resolveUrl(rawHttpUri);
+export const GRAPHQL_WS_URI = resolveUrl(rawWsUri);
 
 // Feature Flags
 export const ENABLE_NOTIFICATIONS = getBooleanEnvVariable('REACT_APP_ENABLE_NOTIFICATIONS', true);
