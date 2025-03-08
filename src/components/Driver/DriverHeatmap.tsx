@@ -475,10 +475,10 @@ const DriverHeatmap: React.FC<DriverHeatmapProps> = ({ selectedDate = new Date()
     };
     
     setHeatmapData(generateMockData());
-  }, [timeframe, selectedDate, selectedCity, viewState.zoom, showAllCities]);
+  }, [timeframe, selectedDate, selectedCity, viewState.zoom, showAllCities, isPointOnLand]);
   
   // Query for heatmap data - you can use mock data instead if your GraphQL server isn't set up
-  const { loading, error, data } = useQuery(GET_DRIVER_HEATMAP_DATA, {
+  const { loading, error } = useQuery(GET_DRIVER_HEATMAP_DATA, {
     skip: true, // Skip the actual GraphQL query and use mock data instead
     onError: (err) => {
       console.error("GraphQL error:", err);

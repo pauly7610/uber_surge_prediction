@@ -1,10 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useStyletron } from 'baseui';
-import { AppNavBar, NavItemT, setItemActive } from 'baseui/app-nav-bar';
+import { AppNavBar, NavItemT } from 'baseui/app-nav-bar';
 import { useNavigate, useLocation } from 'react-router-dom';
-import NotificationCenter from '../Notifications/NotificationCenter';
-import ThemeToggle from '../common/ThemeToggle';
-import { Layer } from 'baseui/layer';
 import { Button } from 'baseui/button';
 import { Menu } from 'baseui/icon';
 import { Drawer, ANCHOR } from 'baseui/drawer';
