@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { HeadingMedium, ParagraphSmall } from 'baseui/typography';
 import { useStyletron } from 'baseui';
 import { Select, Value } from 'baseui/select';
 import { useQuery } from '@apollo/client';
@@ -8,15 +7,12 @@ import { StyledSpinnerNext as Spinner } from 'baseui/spinner';
 import CardWrapper from '../common/CardWrapper';
 import Button from '../common/Button';
 import BottomSheet from '../common/BottomSheet';
-import Legend from '../common/Legend';
 import DeckGL from '@deck.gl/react';
 import { HexagonLayer } from '@deck.gl/aggregation-layers';
 import { ScatterplotLayer } from '@deck.gl/layers';
-// Fix the import for react-map-gl by using the correct export path
 import { Map } from 'react-map-gl/maplibre';
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
-import { format } from 'date-fns';
 import { FlyToInterpolator } from '@deck.gl/core';
 
 // Define major US cities with their coordinates
@@ -89,8 +85,7 @@ const DriverHeatmap: React.FC<DriverHeatmapProps> = ({ selectedDate = new Date()
   const [showAllCities, setShowAllCities] = useState<boolean>(false);
   const deckRef = useRef(null);
   
-  // Width and height for the heatmap
-  const width = 600;
+  // Height for the heatmap (removed unused width variable)
   const height = 400;
   
   // Function to check if a point is on land (not in water)
@@ -228,7 +223,7 @@ const DriverHeatmap: React.FC<DriverHeatmapProps> = ({ selectedDate = new Date()
             name: "Financial District",
             longitude: -122.399,
             latitude: 37.794,
-            intensity: isWeekend ? 0.6 : 0.9, 
+            intensity: isRainy ? 0.7 : 1.0,
             radius: isWeekend ? 0.3 : 0.4 
           },
           // Mission District

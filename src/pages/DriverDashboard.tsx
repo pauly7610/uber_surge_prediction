@@ -10,7 +10,6 @@ import { format, addMonths, subMonths, startOfMonth, endOfMonth, eachDayOfInterv
 import { Button } from 'baseui/button';
 import { ChevronLeft, ChevronRight } from 'baseui/icon';
 import MobileCalendar from '../components/common/MobileCalendar';
-import { mediaQueries, isMobile } from '../utils/responsive';
 
 const DriverDashboard: React.FC = () => {
   const [css] = useStyletron();
@@ -163,17 +162,18 @@ const DriverDashboard: React.FC = () => {
   // Update data when selected date changes
   useEffect(() => {
     // Get data for the selected date
-    setCurrentData(getDataForDate(selectedDate));
+    const data = getDataForDate(selectedDate);
+    setCurrentData(data);
     
-    // Generate simplified timeline data
+    // Generate simplified timeline data for the chart
     const simplifiedTimelineData = [];
     
-    // Add data points for every hour from 6 AM to 10 PM
-    for (let hour = 6; hour <= 22; hour++) {
+    // Generate data for each hour of the day
+    for (let hour = 0; hour < 24; hour++) {
       const timestamp = new Date(selectedDate);
       timestamp.setHours(hour, 0, 0, 0);
       
-      // Generate a multiplier based on time of day
+      // Base multiplier
       let baseMultiplier = 1.0;
       
       // Morning rush (7-9 AM)
@@ -211,7 +211,7 @@ const DriverDashboard: React.FC = () => {
     
     // Update heatmap date
     setHeatmapDate(selectedDate);
-  }, [selectedDate]);
+  }, [selectedDate, getDataForDate]);
   
   // Calendar navigation functions
   const nextMonth = () => {

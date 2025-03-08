@@ -89,7 +89,8 @@ export const isDesktop = () => {
   return window.innerWidth >= breakpoints.lg;
 };
 
-export default {
+// Create a named object for the default export
+const responsiveUtils = {
   breakpoints,
   mediaQueries,
   createResponsiveStyles,
@@ -99,4 +100,6 @@ export default {
   isMobile,
   isTablet,
   isDesktop,
-}; 
+};
+
+export default responsiveUtils; 

@@ -3,8 +3,6 @@ import { AreaChart, XAxis, YAxis, Tooltip, Area, ResponsiveContainer } from 'rec
 import CardWrapper from '../common/CardWrapper';
 import { DateRangePicker } from 'react-date-range';
 import { HeadingMedium } from 'baseui/typography';
-import { StyledSpinnerNext as Spinner } from 'baseui/spinner';
-import { Notification } from 'baseui/notification';
 import { useStyletron } from 'baseui';
 import { enUS } from 'date-fns/locale';
 import 'react-date-range/dist/styles.css';
@@ -16,17 +14,6 @@ interface SurgePrediction {
   timestamp: string;
   multiplier: number;
 }
-
-// Define styles for the timeline card using CSS variables
-const timelineCardStyles = {
-  backgroundColor: 'var(--uber-white)',
-  color: 'var(--dark-gray)',
-  width: '100%',
-  maxWidth: '100%',
-  margin: '0 auto',
-  padding: '24px',
-  borderRadius: '8px',
-};
 
 // Define styles for the chart container
 const chartContainerStyles = {
