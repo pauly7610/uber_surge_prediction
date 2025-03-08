@@ -1,9 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { useStyletron } from 'baseui';
-import { AppNavBar, NavItemT } from 'baseui/app-nav-bar';
+import { AppNavBar, NavItemT, setItemActive } from 'baseui/app-nav-bar';
 import { useNavigate, useLocation } from 'react-router-dom';
 import NotificationCenter from '../Notifications/NotificationCenter';
 import ThemeToggle from '../common/ThemeToggle';
+import { Layer } from 'baseui/layer';
+import { Button } from 'baseui/button';
+import { Menu } from 'baseui/icon';
+import { Drawer, ANCHOR } from 'baseui/drawer';
+import { mediaQueries } from '../../utils/responsive';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -44,84 +49,199 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const [css] = useStyletron();
   const navigate = useNavigate();
   const location = useLocation();
-  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  const [mainItems, setMainItems] = useState<NavItemT[]>([]);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isMobileView, setIsMobileView] = useState(false);
   
+  // Check if we're in a mobile view
   useEffect(() => {
-    const handleResize = () => {
-      setIsMobile(window.innerWidth < 768);
+    const checkMobileView = () => {
+      setIsMobileView(window.innerWidth < 768);
     };
     
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
+    checkMobileView();
+    window.addEventListener('resize', checkMobileView);
+    
+    return () => {
+      window.removeEventListener('resize', checkMobileView);
+    };
   }, []);
-  
-  const [mainItems, setMainItems] = React.useState<NavItemT[]>([
-    { icon: HomeIcon, label: 'Dashboard', info: { path: '/' }, active: location.pathname === '/' },
-    { icon: CarIcon, label: 'Driver View', info: { path: '/driver' }, active: location.pathname === '/driver' },
-    { icon: SettingsIcon, label: 'Settings', info: { path: '/settings' }, active: location.pathname === '/settings' },
-  ]);
-  
-  React.useEffect(() => {
-    // Update active state based on current path
-    const updatedMainItems = mainItems.map(item => ({
-      ...item,
-      active: item.info.path === location.pathname
-    }));
+
+  // Set up navigation items
+  useEffect(() => {
+    const items: NavItemT[] = [
+      {
+        icon: undefined,
+        label: 'Dashboard',
+        info: { path: '/' },
+        active: location.pathname === '/'
+      },
+      {
+        icon: undefined,
+        label: 'Driver Dashboard',
+        info: { path: '/driver' },
+        active: location.pathname === '/driver'
+      },
+      {
+        icon: undefined,
+        label: 'Settings',
+        info: { path: '/settings' },
+        active: location.pathname === '/settings'
+      }
+    ];
     
-    // Compare if the active state actually changed to prevent infinite loops
-    const activeStateChanged = updatedMainItems.some(
-      (item, index) => item.active !== mainItems[index].active
-    );
-    
-    if (activeStateChanged) {
-      setMainItems(updatedMainItems);
+    setMainItems(items);
+  }, [location.pathname]);
+
+  // Handle navigation
+  const handleNavigation = (item: NavItemT) => {
+    if (item.info && typeof item.info === 'object' && 'path' in item.info) {
+      const path = item.info.path as string;
+      navigate(path);
+      
+      // Close mobile menu if open
+      if (isMobileMenuOpen) {
+        setIsMobileMenuOpen(false);
+      }
+      
+      // Update active state
+      const updatedItems = mainItems.map(mainItem => {
+        return {
+          ...mainItem,
+          active: mainItem.info && typeof mainItem.info === 'object' && 'path' in mainItem.info && 
+                  mainItem.info.path === path
+        };
+      });
+      
+      setMainItems(updatedItems);
     }
-  }, [location.pathname]); // Remove mainItems from dependencies
-  
+  };
+
   return (
     <div className={css({
-      backgroundColor: '#121212',
-      minHeight: '100vh'
+      display: 'flex',
+      flexDirection: 'column',
+      minHeight: '100vh',
+      width: '100%'
     })}>
-      <div className={css({
-        backgroundColor: '#1E1E1E',
-        borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
-        boxShadow: '0 2px 10px rgba(0, 0, 0, 0.2)'
-      })}>
+      {/* Desktop Navigation */}
+      {!isMobileView && (
         <AppNavBar
-          title={isMobile ? "Surge" : "Uber Surge Prediction"}
+          title="Surge Prediction"
           mainItems={mainItems}
           onMainItemSelect={item => {
-            navigate(item.info.path);
+            handleNavigation(item);
           }}
-          username="User"
-          userItems={[
-            { icon: ProfileIcon, label: 'Profile' },
-            { icon: LogoutIcon, label: 'Logout' },
-          ]}
+          username=""
+          userItems={[]}
           onUserItemSelect={() => {}}
         />
-      </div>
+      )}
       
-      <div className={css({ 
-        position: 'absolute', 
-        top: '16px', 
-        right: isMobile ? '16px' : '80px',
-        display: 'flex',
-        alignItems: 'center',
-        gap: '12px',
-        zIndex: 100
-      })}>
-        <ThemeToggle />
-        <NotificationCenter />
-      </div>
+      {/* Mobile Navigation */}
+      {isMobileView && (
+        <>
+          <div className={css({
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            padding: '12px 16px',
+            backgroundColor: '#000000',
+            color: '#FFFFFF'
+          })}>
+            <div className={css({
+              fontSize: '18px',
+              fontWeight: 'bold'
+            })}>
+              Surge Prediction
+            </div>
+            <Button
+              onClick={() => setIsMobileMenuOpen(true)}
+              kind="tertiary"
+              size="compact"
+              shape="square"
+              overrides={{
+                BaseButton: {
+                  style: {
+                    color: '#FFFFFF'
+                  }
+                }
+              }}
+            >
+              <Menu size={24} />
+            </Button>
+          </div>
+          
+          <Drawer
+            isOpen={isMobileMenuOpen}
+            onClose={() => setIsMobileMenuOpen(false)}
+            anchor={ANCHOR.left}
+            overrides={{
+              DrawerContainer: {
+                style: {
+                  width: '250px'
+                }
+              }
+            }}
+          >
+            <div className={css({
+              padding: '16px'
+            })}>
+              <div className={css({
+                fontSize: '20px',
+                fontWeight: 'bold',
+                marginBottom: '24px'
+              })}>
+                Surge Prediction
+              </div>
+              
+              <div className={css({
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '16px'
+              })}>
+                {mainItems.map((item, index) => (
+                  <div
+                    key={index}
+                    className={css({
+                      padding: '12px 16px',
+                      cursor: 'pointer',
+                      borderRadius: '4px',
+                      backgroundColor: item.active ? '#EEEEEE' : 'transparent',
+                      ':hover': {
+                        backgroundColor: '#F5F5F5'
+                      }
+                    })}
+                    onClick={() => handleNavigation(item)}
+                  >
+                    {item.label}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </Drawer>
+        </>
+      )}
       
-      <div className={css({ 
-        maxWidth: '1200px',
-        margin: '0 auto'
+      <main className={css({
+        flex: 1,
+        padding: '16px',
+        [mediaQueries.md]: {
+          padding: '24px'
+        }
       })}>
         {children}
-      </div>
+      </main>
+      
+      <footer className={css({
+        padding: '16px',
+        textAlign: 'center',
+        borderTop: '1px solid #EEEEEE',
+        fontSize: '14px',
+        color: '#666666'
+      })}>
+        &copy; {new Date().getFullYear()} Surge Prediction App
+      </footer>
     </div>
   );
 };

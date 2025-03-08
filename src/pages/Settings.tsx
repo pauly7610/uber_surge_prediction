@@ -77,7 +77,7 @@ const Settings: React.FC = () => {
       )}
       
       <Grid>
-        <Cell span={8}>
+        <Cell span={[4, 6, 8]}>
           <Card>
             <HeadingMedium>Notification Preferences</HeadingMedium>
             

@@ -9,6 +9,7 @@ import { Tag } from 'baseui/tag';
 import { format, addMonths, subMonths, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isToday, isSameDay, addDays, differenceInDays } from 'date-fns';
 import { Button } from 'baseui/button';
 import { ChevronLeft, ChevronRight } from 'baseui/icon';
+import { mediaQueries } from '../utils/responsive';
 
 const Dashboard: React.FC = () => {
   const [css] = useStyletron();

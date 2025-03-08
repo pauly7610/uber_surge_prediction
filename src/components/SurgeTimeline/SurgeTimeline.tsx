@@ -1,11 +1,7 @@
-import React, { useState, useEffect } from 'react';
-import { useSubscription, useQuery, ApolloError } from '@apollo/client';
+import React, { useState } from 'react';
 import { AreaChart, XAxis, YAxis, Tooltip, Area, ResponsiveContainer } from 'recharts';
 import CardWrapper from '../common/CardWrapper';
 import { DateRangePicker } from 'react-date-range';
-import { SURGE_UPDATE_SUBSCRIPTION } from '../../graphql/subscriptions';
-import { GET_HISTORICAL_SURGE_DATA, GET_SURGE_DATA } from '../../graphql/queries';
-import CustomTooltip from './CustomTooltip';
 import { HeadingMedium } from 'baseui/typography';
 import { StyledSpinnerNext as Spinner } from 'baseui/spinner';
 import { Notification } from 'baseui/notification';
@@ -13,6 +9,7 @@ import { useStyletron } from 'baseui';
 import { enUS } from 'date-fns/locale';
 import 'react-date-range/dist/styles.css';
 import 'react-date-range/dist/theme/default.css';
+import CustomTooltip from './CustomTooltip';
 
 // Define the SurgePrediction type
 interface SurgePrediction {
@@ -75,20 +72,6 @@ interface SurgeTimelineProps {
 const SurgeTimeline: React.FC<SurgeTimelineProps> = ({ routeId, initialData, hideDatePicker = false }) => {
   const [css] = useStyletron();
   
-  // Get current surge data
-  const { data: currentSurgeData, loading: currentSurgeLoading } = 
-    useQuery(GET_SURGE_DATA, {
-      fetchPolicy: 'network-only',
-      notifyOnNetworkStatusChange: true
-    });
-  
-  // Subscribe to surge updates
-  const { data: subscriptionData, loading: subscriptionLoading, error: subscriptionError } = 
-    useSubscription(SURGE_UPDATE_SUBSCRIPTION, {
-      variables: { routeId },
-      onError: (error: ApolloError) => console.error("Subscription error:", error)
-    });
-
   const [dateRange, setDateRange] = useState([
     {
       startDate: new Date(),
@@ -96,36 +79,6 @@ const SurgeTimeline: React.FC<SurgeTimelineProps> = ({ routeId, initialData, hid
       key: 'selection'
     }
   ]);
-
-  const { data: historicalData, loading: historyLoading, error: historyError, refetch } = 
-    useQuery(GET_HISTORICAL_SURGE_DATA, {
-      variables: {
-        routeId,
-        startDate: dateRange[0].startDate.toISOString(),
-        endDate: dateRange[0].endDate.toISOString()
-      },
-      fetchPolicy: 'network-only',
-      notifyOnNetworkStatusChange: true,
-      onError: (error: ApolloError) => console.error("Historical data query error:", error)
-    });
-
-  useEffect(() => {
-    if (dateRange[0].startDate && dateRange[0].endDate) {
-      try {
-        refetch({
-          routeId,
-          startDate: dateRange[0].startDate.toISOString(),
-          endDate: dateRange[0].endDate.toISOString()
-        }).catch((err: Error) => {
-          console.error('Error fetching historical data:', err);
-          // Don't throw the error further to prevent error cascades
-        });
-      } catch (error) {
-        console.error('Error in refetch operation:', error);
-        // Safely handle the error without crashing the component
-      }
-    }
-  }, [dateRange, refetch, routeId]);
 
   type DateRangeSelectionType = {
     [key: string]: {
@@ -139,24 +92,13 @@ const SurgeTimeline: React.FC<SurgeTimelineProps> = ({ routeId, initialData, hid
     setDateRange([ranges.selection]);
   };
 
-  // Use loading state but prioritize showing initial data
-  const isLoading = false; // Always show data immediately
-  const error = subscriptionError || historyError;
-  
-  // Always use initialData for immediate display, then merge with API data if available
-  const historicalSurgeData = historicalData?.historicalSurgeData || [];
-  const currentSurge = currentSurgeData?.surgeData || [];
-  const liveUpdates = subscriptionData?.surgeUpdates || [];
-  
-  // Combine all data sources, but prioritize initialData for immediate display
-  const chartData = initialData.length > 0 
-    ? initialData 
-    : [...historicalSurgeData, ...currentSurge, ...liveUpdates];
-
   // Format dates for display
-  const formattedChartData = chartData.map(item => ({
+  const formattedChartData = initialData.map(item => ({
     ...item,
-    formattedTime: new Date(item.timestamp).toLocaleTimeString(),
+    formattedTime: new Date(item.timestamp).toLocaleTimeString([], { 
+      hour: '2-digit', 
+      minute: '2-digit' 
+    }),
     timestamp: new Date(item.timestamp).toLocaleString()
   }));
 
@@ -183,12 +125,6 @@ const SurgeTimeline: React.FC<SurgeTimelineProps> = ({ routeId, initialData, hid
         </div>
         Price Lock Available: Lock in standard rates for your evening commute before prices increase.
       </div>
-
-      {error && (
-        <Notification kind="negative" closeable>
-          Error loading surge data: {error.message}
-        </Notification>
-      )}
       
       {!hideDatePicker && (
         <div className={css(datePickerContainerStyles)}>
@@ -248,17 +184,7 @@ const SurgeTimeline: React.FC<SurgeTimelineProps> = ({ routeId, initialData, hid
       )}
       
       <div className={css(chartContainerStyles)}>
-        {isLoading ? (
-          <div className={css({
-            display: 'flex',
-            justifyContent: 'center',
-            alignItems: 'center',
-            height: '300px',
-          })}>
-            <Spinner size="large" />
-            <span className={css({ marginLeft: '12px' })}>Loading surge data...</span>
-          </div>
-        ) : formattedChartData && formattedChartData.length > 0 ? (
+        {formattedChartData && formattedChartData.length > 0 ? (
           <ResponsiveContainer width="100%" height={300}>
             <AreaChart
               data={formattedChartData}

@@ -714,6 +714,9 @@ const DriverHeatmap: React.FC<DriverHeatmapProps> = ({ selectedDate = new Date()
   return (
     <div className={css({
       fontFamily: 'var(--font-family-base)',
+      width: '100%',
+      maxWidth: '100%',
+      overflow: 'hidden'
     })}>
       <CardWrapper 
         title={getDateSpecificTitle()} 
@@ -721,9 +724,13 @@ const DriverHeatmap: React.FC<DriverHeatmapProps> = ({ selectedDate = new Date()
       >
         <div className={css({
           display: 'flex',
+          flexDirection: 'column',
           justifyContent: 'space-between',
           alignItems: 'center',
-          marginBottom: '16px'
+          marginBottom: '16px',
+          '@media screen and (min-width: 768px)': {
+            flexDirection: 'row'
+          }
         })}>
           <h3 className={css({
             margin: 0,
@@ -810,11 +817,13 @@ const DriverHeatmap: React.FC<DriverHeatmapProps> = ({ selectedDate = new Date()
             </p>
           </div>
         ) : (
-          <div className={css({ 
+          <div className={css({
             position: 'relative',
-            height: `${height}px`,
-            borderRadius: '8px',
-            overflow: 'hidden'
+            height: '400px',
+            width: '100%',
+            '@media screen and (max-width: 768px)': {
+              height: '300px'
+            }
           })}>
             <DeckGL
               {...deckGLProps}
@@ -889,7 +898,11 @@ const DriverHeatmap: React.FC<DriverHeatmapProps> = ({ selectedDate = new Date()
           justifyContent: 'center',
           backgroundColor: 'rgba(0, 0, 0, 0.05)',
           padding: '12px',
-          borderRadius: '8px'
+          borderRadius: '8px',
+          flexDirection: 'column',
+          '@media screen and (min-width: 768px)': {
+            flexDirection: 'row'
+          }
         })}>
           <Button 
             variant="primary" 

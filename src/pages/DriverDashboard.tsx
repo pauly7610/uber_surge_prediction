@@ -2,13 +2,15 @@ import React, { useState, useEffect } from 'react';
 import { Grid, Cell } from 'baseui/layout-grid';
 import { HeadingLarge } from 'baseui/typography';
 import DriverHeatmap from '../components/Driver/DriverHeatmap';
-import SurgeTimeline from '../components/SurgeTimeline/SurgeTimeline';
+import DriverSurgeTimeline from '../components/SurgeTimeline/DriverSurgeTimeline';
 import CardWrapper from '../components/common/CardWrapper';
 import { useStyletron } from 'baseui';
 import { Tag } from 'baseui/tag';
 import { format, addMonths, subMonths, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isToday, isSameDay } from 'date-fns';
 import { Button } from 'baseui/button';
 import { ChevronLeft, ChevronRight } from 'baseui/icon';
+import MobileCalendar from '../components/common/MobileCalendar';
+import { mediaQueries, isMobile } from '../utils/responsive';
 
 const DriverDashboard: React.FC = () => {
   const [css] = useStyletron();
@@ -18,6 +20,7 @@ const DriverDashboard: React.FC = () => {
   const [currentMonth, setCurrentMonth] = useState<Date>(new Date());
   const [timelineData, setTimelineData] = useState<any[]>([]);
   const [heatmapDate, setHeatmapDate] = useState<Date>(new Date());
+  const [isOnMobile, setIsOnMobile] = useState(false);
   
   // Base data patterns for different days
   const patterns = {
@@ -162,25 +165,53 @@ const DriverDashboard: React.FC = () => {
     // Get data for the selected date
     setCurrentData(getDataForDate(selectedDate));
     
-    // Generate timeline data
-    const newTimelineData = generateDataForDate(selectedDate);
+    // Generate simplified timeline data
+    const simplifiedTimelineData = [];
     
-    // Get previous day data
-    const previousDay = new Date(selectedDate);
-    previousDay.setDate(previousDay.getDate() - 1);
-    const previousDayData = generateDataForDate(previousDay).slice(10, 15); // Just evening data
+    // Add data points for every hour from 6 AM to 10 PM
+    for (let hour = 6; hour <= 22; hour++) {
+      const timestamp = new Date(selectedDate);
+      timestamp.setHours(hour, 0, 0, 0);
+      
+      // Generate a multiplier based on time of day
+      let baseMultiplier = 1.0;
+      
+      // Morning rush (7-9 AM)
+      if (hour >= 7 && hour <= 9) {
+        baseMultiplier = 1.5 + (Math.random() * 0.5);
+      }
+      // Lunch time (12-1 PM)
+      else if (hour >= 12 && hour <= 13) {
+        baseMultiplier = 1.3 + (Math.random() * 0.3);
+      }
+      // Evening rush (5-7 PM)
+      else if (hour >= 17 && hour <= 19) {
+        baseMultiplier = 1.8 + (Math.random() * 0.7);
+      }
+      // Late night (9-10 PM)
+      else if (hour >= 21) {
+        baseMultiplier = 1.4 + (Math.random() * 0.4);
+      }
+      // Other times
+      else {
+        baseMultiplier = 1.0 + (Math.random() * 0.3);
+      }
+      
+      // Add some randomness based on the date
+      const dateEffect = (selectedDate.getDate() % 10) / 20; // 0 to 0.45
+      const finalMultiplier = baseMultiplier + dateEffect;
+      
+      simplifiedTimelineData.push({
+        timestamp: timestamp.toISOString(),
+        multiplier: parseFloat(finalMultiplier.toFixed(2))
+      });
+    }
     
-    // Get next day data
-    const nextDay = new Date(selectedDate);
-    nextDay.setDate(nextDay.getDate() + 1);
-    const nextDayData = generateDataForDate(nextDay).slice(0, 5); // Just morning data
-    
-    // Combine all data
-    setTimelineData([...previousDayData, ...newTimelineData, ...nextDayData]);
+    setTimelineData(simplifiedTimelineData);
     
     // Update heatmap date
     setHeatmapDate(selectedDate);
-  }, [selectedDate, generateDataForDate, getDataForDate]);
+  }, [selectedDate]);
   
   // Calendar navigation functions
   const nextMonth = () => {
@@ -198,50 +229,39 @@ const DriverDashboard: React.FC = () => {
     return eachDayOfInterval({ start, end });
   };
   
-  // Get day class based on state
+  // Get class for calendar day
   const getDayClass = (day: Date) => {
-    const baseStyles = {
-      width: '36px',
-      height: '36px',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      borderRadius: '50%',
-      cursor: 'pointer',
-      margin: '2px',
-      fontSize: '14px',
-      transition: 'all 0.2s ease',
-      ':hover': {
-        backgroundColor: 'rgba(255, 255, 255, 0.1)'
-      }
+    const isCurrentMonth = isSameMonth(day, currentMonth);
+    const isSelectedDay = isSameDay(day, selectedDate);
+    const isTodayDate = isToday(day);
+    
+    const styles: Record<string, string | number> = {
+      opacity: isCurrentMonth ? 1 : 0.3
     };
     
-    // Selected day
-    if (isSameDay(day, selectedDate)) {
-      return css({
-        ...baseStyles,
-        backgroundColor: '#276EF1',
-        color: 'white',
-        fontWeight: 'bold'
-      } as any);
+    if (isSelectedDay) {
+      styles.backgroundColor = 'var(--primary-color, #276EF1)';
+      styles.color = 'white';
+    } else if (isTodayDate) {
+      styles.border = '1px solid var(--primary-color, #276EF1)';
     }
     
-    // Today
-    if (isToday(day)) {
-      return css({
-        ...baseStyles,
-        border: '1px solid #276EF1',
-        fontWeight: 'bold'
-      } as any);
-    }
-    
-    // Days with data - all days have data in our case
-    return css({
-      ...baseStyles,
-      color: isSameMonth(day, currentMonth) ? 'white' : 'rgba(255, 255, 255, 0.3)',
-      cursor: 'pointer'
-    } as any);
+    return styles;
   };
+
+  // Check if we're on mobile
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsOnMobile(window.innerWidth < 768);
+    };
+    
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    
+    return () => {
+      window.removeEventListener('resize', checkMobile);
+    };
+  }, []);
 
   return (
     <div>
@@ -255,240 +275,231 @@ const DriverDashboard: React.FC = () => {
         <Cell span={[4, 8, 4]}>
           <div className={css({ marginBottom: '24px' })}>
             <CardWrapper title="Select Date">
-              <div className={css({
-                backgroundColor: '#121212',
-                color: 'white',
-                padding: '16px',
-                borderRadius: '8px'
-              })}>
-                {/* Calendar header */}
-                <div className={css({
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  marginBottom: '16px'
-                })}>
-                  <Button 
-                    kind="tertiary" 
-                    size="mini" 
-                    onClick={prevMonth}
-                    overrides={{
-                      BaseButton: {
-                        style: {
-                          backgroundColor: 'transparent',
-                          color: 'white'
-                        }
-                      }
-                    }}
-                  >
-                    <ChevronLeft size={24} />
-                  </Button>
-                  
+              {isOnMobile ? (
+                <MobileCalendar 
+                  selectedDate={selectedDate}
+                  onDateChange={setSelectedDate}
+                />
+              ) : (
+                <div>
+                  {/* Calendar header */}
                   <div className={css({
-                    fontWeight: 'bold',
-                    fontSize: '16px'
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    marginBottom: '16px'
                   })}>
-                    {format(currentMonth, 'MMMM yyyy')}
+                    <Button
+                      onClick={prevMonth}
+                      kind="tertiary"
+                      size="compact"
+                      shape="square"
+                    >
+                      <ChevronLeft size={24} />
+                    </Button>
+                    
+                    <div className={css({
+                      fontSize: '16px',
+                      fontWeight: 'bold'
+                    })}>
+                      {format(currentMonth, 'MMMM yyyy')}
+                    </div>
+                    
+                    <Button
+                      onClick={nextMonth}
+                      kind="tertiary"
+                      size="compact"
+                      shape="square"
+                    >
+                      <ChevronRight size={24} />
+                    </Button>
                   </div>
                   
-                  <Button 
-                    kind="tertiary" 
-                    size="mini" 
-                    onClick={nextMonth}
-                    overrides={{
-                      BaseButton: {
-                        style: {
-                          backgroundColor: 'transparent',
-                          color: 'white'
-                        }
-                      }
-                    }}
-                  >
-                    <ChevronRight size={24} />
-                  </Button>
+                  {/* Weekday headers */}
+                  <div className={css({
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(7, 1fr)',
+                    textAlign: 'center',
+                    marginBottom: '8px'
+                  })}>
+                    {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day, index) => (
+                      <div key={index} className={css({
+                        fontSize: '14px',
+                        fontWeight: 'bold',
+                        color: 'rgba(0, 0, 0, 0.7)'
+                      })}>
+                        {day}
+                      </div>
+                    ))}
+                  </div>
+                  
+                  {/* Calendar grid */}
+                  <div className={css({
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(7, 1fr)',
+                    gap: '2px',
+                    justifyItems: 'center'
+                  })}>
+                    {getDaysInMonth().map((day, index) => (
+                      <div
+                        key={index}
+                        onClick={() => setSelectedDate(day)}
+                        className={css({
+                          width: '36px',
+                          height: '36px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          cursor: 'pointer',
+                          borderRadius: '50%',
+                          fontSize: '14px',
+                          ...getDayClass(day)
+                        })}
+                      >
+                        {format(day, 'd')}
+                      </div>
+                    ))}
+                  </div>
                 </div>
-                
-                {/* Weekday headers */}
-                <div className={css({
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(7, 1fr)',
-                  textAlign: 'center',
-                  marginBottom: '8px'
-                })}>
-                  {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day, index) => (
-                    <div key={index} className={css({
-                      fontSize: '14px',
-                      fontWeight: 'bold',
-                      color: 'rgba(255, 255, 255, 0.7)'
-                    })}>
-                      {day}
-                    </div>
-                  ))}
-                </div>
-                
-                {/* Calendar grid */}
-                <div className={css({
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(7, 1fr)',
-                  gap: '2px',
-                  justifyItems: 'center'
-                })}>
-                  {getDaysInMonth().map((day, index) => (
-                    <div 
-                      key={index} 
-                      className={getDayClass(day)}
-                      onClick={() => setSelectedDate(day)}
-                    >
-                      {format(day, 'd')}
-                    </div>
-                  ))}
-                </div>
-              </div>
+              )}
             </CardWrapper>
           </div>
           
           <div className={css({ marginBottom: '24px' })}>
             <CardWrapper title="Driver Insights">
-              <div className={css({
-                backgroundColor: 'var(--uber-white)',
-                color: 'var(--dark-gray)',
-                borderRadius: '8px',
-                padding: '16px'
-              })}>
-                {currentData && (
-                  <>
+              {currentData && (
+                <>
+                  <div className={css({
+                    display: 'flex',
+                    alignItems: 'center',
+                    marginBottom: '16px'
+                  })}>
                     <div className={css({
-                      display: 'flex',
-                      alignItems: 'center',
-                      marginBottom: '16px'
+                      width: '12px',
+                      height: '12px',
+                      borderRadius: '50%',
+                      backgroundColor: selectedDate > new Date() ? 'var(--uber-blue)' : 'var(--success)',
+                      marginRight: '8px'
+                    })} />
+                    <div className={css({
+                      fontWeight: 'bold'
                     })}>
-                      <div className={css({
-                        width: '12px',
-                        height: '12px',
-                        borderRadius: '50%',
-                        backgroundColor: selectedDate > new Date() ? 'var(--uber-blue)' : 'var(--success)',
-                        marginRight: '8px'
-                      })} />
-                      <div className={css({
-                        fontWeight: 'bold'
-                      })}>
-                        {selectedDate > new Date() ? 'Predicted' : 'Historical'}
-                      </div>
-                      <div className={css({
-                        marginLeft: 'auto',
-                        fontSize: 'var(--font-size-caption)',
-                        color: 'var(--medium-gray)'
-                      })}>
-                        {format(selectedDate, 'MMM d, yyyy')}
-                      </div>
+                      {selectedDate > new Date() ? 'Predicted' : 'Historical'}
                     </div>
-                    
                     <div className={css({
-                      marginBottom: '16px'
+                      marginLeft: 'auto',
+                      fontSize: 'var(--font-size-caption)',
+                      color: 'var(--medium-gray)'
                     })}>
-                      <div className={css({
-                        fontSize: 'var(--font-size-caption)',
-                        color: 'var(--medium-gray)',
-                        marginBottom: '4px'
-                      })}>
-                        Estimated Earnings
-                      </div>
-                      <div className={css({
-                        fontSize: 'var(--font-size-heading-medium)',
-                        fontWeight: 'bold',
-                        color: 'var(--dark-gray)'
-                      })}>
-                        ${(120 + (selectedDate.getDate() % 80)).toFixed(2)}
-                      </div>
+                      {format(selectedDate, 'MMM d, yyyy')}
                     </div>
-                    
+                  </div>
+                  
+                  <div className={css({
+                    marginBottom: '16px'
+                  })}>
                     <div className={css({
-                      marginBottom: '16px'
+                      fontSize: 'var(--font-size-caption)',
+                      color: 'var(--medium-gray)',
+                      marginBottom: '4px'
                     })}>
-                      <div className={css({
-                        fontSize: 'var(--font-size-caption)',
-                        color: 'var(--medium-gray)',
-                        marginBottom: '4px'
-                      })}>
-                        Busiest Areas
-                      </div>
-                      <div className={css({
-                        fontSize: 'var(--font-size-body)',
-                        display: 'flex',
-                        flexWrap: 'wrap',
-                        gap: '8px'
-                      })}>
-                        {selectedDate.getDay() === 0 || selectedDate.getDay() === 6 ? (
-                          <>
-                            <Tag closeable={false} kind="warning">Marina</Tag>
-                            <Tag closeable={false} kind="warning">Mission</Tag>
-                            <Tag closeable={false} kind="neutral">SoMa</Tag>
-                          </>
-                        ) : selectedDate.getDate() % 2 === 0 ? (
-                          <>
-                            <Tag closeable={false} kind="warning">Financial District</Tag>
-                            <Tag closeable={false} kind="warning">SoMa</Tag>
-                            <Tag closeable={false} kind="neutral">North Beach</Tag>
-                          </>
-                        ) : (
-                          <>
-                            <Tag closeable={false} kind="warning">Downtown</Tag>
-                            <Tag closeable={false} kind="warning">Haight-Ashbury</Tag>
-                            <Tag closeable={false} kind="neutral">Richmond</Tag>
-                          </>
-                        )}
-                      </div>
+                      Estimated Earnings
                     </div>
-                    
                     <div className={css({
-                      marginBottom: '16px'
+                      fontSize: 'var(--font-size-heading-medium)',
+                      fontWeight: 'bold',
+                      color: 'var(--dark-gray)'
                     })}>
-                      <div className={css({
-                        fontSize: 'var(--font-size-caption)',
-                        color: 'var(--medium-gray)',
-                        marginBottom: '4px'
-                      })}>
-                        Peak Hours
-                      </div>
-                      <div className={css({
-                        fontSize: 'var(--font-size-body)'
-                      })}>
-                        {selectedDate.getDay() === 0 || selectedDate.getDay() === 6 ? 
-                          '11 AM - 2 PM, 7 PM - 10 PM' : 
-                          '7 AM - 9 AM, 5 PM - 7 PM'}
-                      </div>
+                      ${(120 + (selectedDate.getDate() % 80)).toFixed(2)}
                     </div>
-                    
+                  </div>
+                  
+                  <div className={css({
+                    marginBottom: '16px'
+                  })}>
                     <div className={css({
+                      fontSize: 'var(--font-size-caption)',
+                      color: 'var(--medium-gray)',
+                      marginBottom: '4px'
+                    })}>
+                      Busiest Areas
+                    </div>
+                    <div className={css({
+                      fontSize: 'var(--font-size-body)',
                       display: 'flex',
                       flexWrap: 'wrap',
                       gap: '8px'
                     })}>
-                      {selectedDate.getDate() % 3 === 0 && (
-                        <Tag closeable={false} kind="positive">
-                          Bonus Available
-                        </Tag>
-                      )}
-                      {selectedDate.getDay() === 5 && (
-                        <Tag closeable={false} kind="warning">
-                          High Demand Night
-                        </Tag>
-                      )}
-                      {selectedDate.getDate() % 10 === 0 && (
-                        <Tag closeable={false} kind="accent">
-                          Special Event
-                        </Tag>
+                      {selectedDate.getDay() === 0 || selectedDate.getDay() === 6 ? (
+                        <>
+                          <Tag closeable={false} kind="warning">Marina</Tag>
+                          <Tag closeable={false} kind="warning">Mission</Tag>
+                          <Tag closeable={false} kind="neutral">SoMa</Tag>
+                        </>
+                      ) : selectedDate.getDate() % 2 === 0 ? (
+                        <>
+                          <Tag closeable={false} kind="warning">Financial District</Tag>
+                          <Tag closeable={false} kind="warning">SoMa</Tag>
+                          <Tag closeable={false} kind="neutral">North Beach</Tag>
+                        </>
+                      ) : (
+                        <>
+                          <Tag closeable={false} kind="warning">Downtown</Tag>
+                          <Tag closeable={false} kind="warning">Haight-Ashbury</Tag>
+                          <Tag closeable={false} kind="neutral">Richmond</Tag>
+                        </>
                       )}
                     </div>
-                  </>
-                )}
-              </div>
+                  </div>
+                  
+                  <div className={css({
+                    marginBottom: '16px'
+                  })}>
+                    <div className={css({
+                      fontSize: 'var(--font-size-caption)',
+                      color: 'var(--medium-gray)',
+                      marginBottom: '4px'
+                    })}>
+                      Peak Hours
+                    </div>
+                    <div className={css({
+                      fontSize: 'var(--font-size-body)'
+                    })}>
+                      {selectedDate.getDay() === 0 || selectedDate.getDay() === 6 ? 
+                        '11 AM - 2 PM, 7 PM - 10 PM' : 
+                        '7 AM - 9 AM, 5 PM - 7 PM'}
+                    </div>
+                  </div>
+                  
+                  <div className={css({
+                    display: 'flex',
+                    flexWrap: 'wrap',
+                    gap: '8px'
+                  })}>
+                    {selectedDate.getDate() % 3 === 0 && (
+                      <Tag closeable={false} kind="positive">
+                        Bonus Available
+                      </Tag>
+                    )}
+                    {selectedDate.getDay() === 5 && (
+                      <Tag closeable={false} kind="warning">
+                        High Demand Night
+                      </Tag>
+                    )}
+                    {selectedDate.getDate() % 10 === 0 && (
+                      <Tag closeable={false} kind="accent">
+                        Special Event
+                      </Tag>
+                    )}
+                  </div>
+                </>
+              )}
             </CardWrapper>
           </div>
         </Cell>
         
         <Cell span={12}>
-          <SurgeTimeline routeId={routeId} initialData={timelineData} hideDatePicker={true} />
+          <DriverSurgeTimeline routeId={routeId} initialData={timelineData} />
         </Cell>
       </Grid>
     </div>
