@@ -2,7 +2,7 @@ import React, { useState, ChangeEvent } from 'react';
 import { Grid, Cell } from 'baseui/layout-grid';
 import { HeadingLarge, HeadingMedium, ParagraphSmall } from 'baseui/typography';
 import { Card } from 'baseui/card';
-import { Checkbox, CheckboxProps } from 'baseui/checkbox';
+import { Checkbox } from 'baseui/checkbox';
 import { Select, Value } from 'baseui/select';
 import { Button } from 'baseui/button';
 import { useStyletron } from 'baseui';

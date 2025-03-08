@@ -138,7 +138,7 @@ export const GOOGLE_ANALYTICS_ID = getEnvVariable(
 export const DEBUG_MODE = getBooleanEnvVariable('REACT_APP_DEBUG_MODE', false);
 
 // Export all config as a single object
-export default {
+const config = {
   graphql: {
     httpUri: GRAPHQL_HTTP_URI,
     wsUri: GRAPHQL_WS_URI,
@@ -165,4 +165,6 @@ export default {
   debug: DEBUG_MODE,
   isBuildEnv,
   isVercel,
-}; 
+};
+
+export default config; 

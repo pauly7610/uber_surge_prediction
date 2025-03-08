@@ -6,7 +6,7 @@ import SurgeTimeline from '../components/SurgeTimeline/SurgeTimeline';
 import CardWrapper from '../components/common/CardWrapper';
 import { useStyletron } from 'baseui';
 import { Tag } from 'baseui/tag';
-import { format, addMonths, subMonths, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isToday, isSameDay, addDays, differenceInDays } from 'date-fns';
+import { format, addMonths, subMonths, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isToday, isSameDay } from 'date-fns';
 import { Button } from 'baseui/button';
 import { ChevronLeft, ChevronRight } from 'baseui/icon';
 
@@ -28,13 +28,13 @@ const DriverDashboard: React.FC = () => {
     },
     weekend: {
       morning: [1.1, 1.2, 1.3, 1.4, 1.3],
-      afternoon: [1.5, 1.7, 1.9, 2.0, 1.8],
-      evening: [2.1, 2.4, 2.6, 2.3, 2.0]
+      afternoon: [1.5, 1.7, 1.9, 1.8, 1.6],
+      evening: [1.8, 2.1, 2.4, 2.2, 1.9]
     },
     holiday: {
-      morning: [1.3, 1.5, 1.7, 1.6, 1.5],
-      afternoon: [1.8, 2.0, 2.2, 2.1, 1.9],
-      evening: [2.3, 2.5, 2.8, 2.6, 2.2]
+      morning: [1.3, 1.6, 1.9, 1.7, 1.5],
+      afternoon: [1.7, 1.9, 2.1, 2.0, 1.8],
+      evening: [2.2, 2.5, 2.7, 2.5, 2.2]
     },
     rainy: {
       morning: [1.5, 1.8, 2.0, 1.9, 1.7],
@@ -68,12 +68,14 @@ const DriverDashboard: React.FC = () => {
       timestamp.setHours(hour, 0, 0, 0);
       
       // Add some randomness to the multiplier
-      const randomFactor = 0.9 + (dateNum % 20) / 100;
+      const randomFactor = 0.9 + Math.random() * 0.2;
       const multiplier = patternType.morning[i] * randomFactor;
       
       result.push({
         timestamp: timestamp.toISOString(),
-        multiplier: parseFloat(multiplier.toFixed(1))
+        hour,
+        multiplier,
+        predicted: true
       });
     }
     
@@ -84,12 +86,14 @@ const DriverDashboard: React.FC = () => {
       timestamp.setHours(hour, 0, 0, 0);
       
       // Add some randomness to the multiplier
-      const randomFactor = 0.9 + (dateNum % 20) / 100;
+      const randomFactor = 0.9 + Math.random() * 0.2;
       const multiplier = patternType.afternoon[i] * randomFactor;
       
       result.push({
         timestamp: timestamp.toISOString(),
-        multiplier: parseFloat(multiplier.toFixed(1))
+        hour,
+        multiplier,
+        predicted: true
       });
     }
     
@@ -100,48 +104,22 @@ const DriverDashboard: React.FC = () => {
       timestamp.setHours(hour, 0, 0, 0);
       
       // Add some randomness to the multiplier
-      const randomFactor = 0.9 + (dateNum % 20) / 100;
+      const randomFactor = 0.9 + Math.random() * 0.2;
       const multiplier = patternType.evening[i] * randomFactor;
       
       result.push({
         timestamp: timestamp.toISOString(),
-        multiplier: parseFloat(multiplier.toFixed(1))
+        hour,
+        multiplier,
+        predicted: true
       });
     }
     
     return result;
   };
   
-  // Update current data and timeline data when selected date changes
-  useEffect(() => {
-    // Set current data for the status card
-    setCurrentData(getDataForDate(selectedDate));
-    
-    // Generate timeline data for the selected date
-    const newTimelineData = generateDataForDate(selectedDate);
-    
-    // Add some historical data (previous day)
-    const previousDay = new Date(selectedDate);
-    previousDay.setDate(previousDay.getDate() - 1);
-    const previousDayData = generateDataForDate(previousDay).slice(-5); // Just evening data
-    
-    // Add some future data (next day)
-    const nextDay = new Date(selectedDate);
-    nextDay.setDate(nextDay.getDate() + 1);
-    const nextDayData = generateDataForDate(nextDay).slice(0, 5); // Just morning data
-    
-    // Combine all data
-    setTimelineData([...previousDayData, ...newTimelineData, ...nextDayData]);
-    
-    // Update heatmap date
-    setHeatmapDate(selectedDate);
-  }, [selectedDate]);
-  
   // Function to get data for the selected date
   const getDataForDate = (date: Date) => {
-    // Format date to compare just the day, month, and year
-    const formattedSelectedDate = format(date, 'yyyy-MM-dd');
-    
     // Generate data for the selected date
     const dateData = generateDataForDate(date);
     
@@ -158,22 +136,51 @@ const DriverDashboard: React.FC = () => {
     } else {
       // Evening or night (default to evening)
       timeIndex = Math.min(currentHour - 18, 4);
-      if (timeIndex < 0) timeIndex = 0;
     }
     
-    // Get the appropriate time segment
-    let segment;
+    if (timeIndex < 0) timeIndex = 0;
+    
+    // Find the appropriate time period
+    let period;
     if (currentHour >= 8 && currentHour < 13) {
-      segment = dateData.slice(0, 5); // Morning
+      period = 'morning';
     } else if (currentHour >= 13 && currentHour < 18) {
-      segment = dateData.slice(5, 10); // Afternoon
+      period = 'afternoon';
     } else {
-      segment = dateData.slice(10, 15); // Evening
+      period = 'evening';
     }
     
-    // Return the current time's data or the first item if not found
-    return segment[Math.min(timeIndex, segment.length - 1)];
+    return {
+      currentMultiplier: dateData[timeIndex]?.multiplier || 1.0,
+      period,
+      data: dateData
+    };
   };
+  
+  // Update data when selected date changes
+  useEffect(() => {
+    // Get data for the selected date
+    setCurrentData(getDataForDate(selectedDate));
+    
+    // Generate timeline data
+    const newTimelineData = generateDataForDate(selectedDate);
+    
+    // Get previous day data
+    const previousDay = new Date(selectedDate);
+    previousDay.setDate(previousDay.getDate() - 1);
+    const previousDayData = generateDataForDate(previousDay).slice(10, 15); // Just evening data
+    
+    // Get next day data
+    const nextDay = new Date(selectedDate);
+    nextDay.setDate(nextDay.getDate() + 1);
+    const nextDayData = generateDataForDate(nextDay).slice(0, 5); // Just morning data
+    
+    // Combine all data
+    setTimelineData([...previousDayData, ...newTimelineData, ...nextDayData]);
+    
+    // Update heatmap date
+    setHeatmapDate(selectedDate);
+  }, [selectedDate, generateDataForDate, getDataForDate]);
   
   // Calendar navigation functions
   const nextMonth = () => {
