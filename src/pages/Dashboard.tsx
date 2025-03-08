@@ -1,564 +1,514 @@
 import React, { useState, useEffect } from 'react';
-import { Grid, Cell } from 'baseui/layout-grid';
-import { HeadingLarge } from 'baseui/typography';
-import SurgeTimeline from '../components/SurgeTimeline/SurgeTimeline';
-import CardWrapper from '../components/common/CardWrapper';
 import { useStyletron } from 'baseui';
-import { Check } from 'baseui/icon';
-import { Tag } from 'baseui/tag';
-import { format, addMonths, subMonths, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isToday, isSameDay, addDays, differenceInDays } from 'date-fns';
-import { Button } from 'baseui/button';
-import { ChevronLeft, ChevronRight } from 'baseui/icon';
-import { mediaQueries } from '../utils/responsive';
+import { Grid, Cell } from 'baseui/layout-grid';
+import { HeadingLarge, HeadingSmall } from 'baseui/typography';
+import { format, addMinutes } from 'date-fns';
 
+// Import components from the Surge directory
+import DateSelector from '../components/Surge/DateSelector';
+import CurrentStatusCard from '../components/Surge/CurrentStatusCard';
+import SurgeTimeline from '../components/SurgeTimeline/SurgeTimeline';
+import AlternativeRoutesCard from '../components/Surge/AlternativeRoutesCard';
+import TimeSlotsCard from '../components/Surge/TimeSlotsCard';
+import PriceLockStatusBar from '../components/Surge/PriceLockStatusBar';
+
+// Define types for our data structures
+interface TimelineDataItem {
+  hour: number;
+  time: string;
+  formattedTime: string;
+  surge: number;
+  confidence: number;
+}
+
+interface RouteItem {
+  route: string;
+  time: number;
+  diff: string;
+  price: string;
+  savings: string;
+  isBest: boolean;
+  surge?: number;
+}
+
+interface TimeSlot {
+  hour: number;
+  minute: number;
+  time: string;
+  surge: number;
+}
+
+interface PriceLockInfo {
+  lockedPrice: number;
+  projectedPeak: number;
+  savingsPercent: number;
+}
+
+// Mock data generators
+const generateMockTimelineData = (date: Date): TimelineDataItem[] => {
+  // Use the date to seed some randomness
+  const dateNum = date.getDate() + date.getMonth() * 31;
+  const isWeekend = date.getDay() === 0 || date.getDay() === 6;
+  const isHoliday = dateNum % 10 === 0; // Every 10th day is a "holiday"
+  
+  // Base multiplier is higher on weekends and holidays
+  const baseMultiplier = isWeekend ? 1.3 : isHoliday ? 1.5 : 1.0;
+  
+  return Array.from({ length: 24 }, (_, i) => {
+    // Morning rush (7-9 AM)
+    const morningRush = (i >= 7 && i <= 9) ? 0.5 : 0;
+    // Evening rush (4-7 PM)
+    const eveningRush = (i >= 16 && i <= 19) ? 0.7 : 0;
+    // Late night (10 PM - 2 AM)
+    const lateNight = (i >= 22 || i <= 2) ? 0.4 : 0;
+    
+    // Calculate surge based on time of day
+    const timeBasedSurge = morningRush + eveningRush + lateNight;
+    
+    // Add some randomness
+    const randomFactor = Math.sin(i / 3 + dateNum) * 0.3;
+    
+    // Calculate final surge value
+    const surge = Math.max(1.0, baseMultiplier + timeBasedSurge + randomFactor);
+    
+    // Calculate confidence (higher during predictable times)
+    const confidence = 70 + (morningRush || eveningRush ? 20 : 0) - Math.abs(randomFactor) * 30;
+    
+    return {
+      hour: i,
+      time: `${i}:00`,
+      formattedTime: `${i % 12 === 0 ? 12 : i % 12}:00 ${i < 12 ? 'AM' : 'PM'}`,
+      surge: parseFloat(surge.toFixed(2)),
+      confidence: Math.round(confidence)
+    };
+  });
+};
+
+const generateMockRoutes = (date: Date): RouteItem[] => {
+  // Use the date to seed some randomness
+  const dateNum = date.getDate() + date.getMonth() * 31;
+  const isWeekend = date.getDay() === 0 || date.getDay() === 6;
+  
+  // Base time and price
+  const baseTime = isWeekend ? 18 : 22;
+  const basePrice = isWeekend ? 22.50 : 28.75;
+  
+  // Add surge property to each route
+  return [
+    {
+      route: 'Main St → Downtown',
+      time: 15 + (isWeekend ? 2 : 5),
+      diff: isWeekend ? '+2' : '+5',
+      price: `$${(12 + (isWeekend ? 1 : 3)).toFixed(2)}`,
+      savings: `$${(isWeekend ? 0.5 : 2).toFixed(2)}`,
+      isBest: true,
+      surge: 1.2
+    },
+    {
+      route: 'Highway 101',
+      time: 12,
+      diff: '+0',
+      price: `$${(15 + (isWeekend ? 1 : 4)).toFixed(2)}`,
+      savings: '',
+      isBest: false,
+      surge: 1.5
+    },
+    {
+      route: 'Coastal Route',
+      time: 22,
+      diff: '+10',
+      price: `$${(10 + (isWeekend ? 0.5 : 2)).toFixed(2)}`,
+      savings: `$${(isWeekend ? 1.5 : 5).toFixed(2)}`,
+      isBest: false,
+      surge: 1.0
+    }
+  ];
+};
+
+const generateTimeSlots = (date: Date): TimeSlot[] => {
+  const slots: TimeSlot[] = [];
+  const now = new Date();
+  
+  // Check if the selected date is today, in the future, or in the past
+  const isToday = date.getDate() === now.getDate() && 
+                  date.getMonth() === now.getMonth() && 
+                  date.getFullYear() === now.getFullYear();
+  
+  const isFutureDate = (date.getFullYear() > now.getFullYear()) ||
+                       (date.getFullYear() === now.getFullYear() && date.getMonth() > now.getMonth()) ||
+                       (date.getFullYear() === now.getFullYear() && date.getMonth() === now.getMonth() && date.getDate() > now.getDate());
+                       
+  const isPastDate = !isToday && !isFutureDate;
+  
+  // For past dates, return an empty array (no slots available)
+  if (isPastDate) {
+    return [];
+  }
+  
+  // For future dates, show all slots from 6 AM to 10 PM
+  // For today, start from the current hour (or 6 AM if it's earlier than 6 AM)
+  const startHour = isToday ? Math.max(now.getHours(), 6) : 6;
+  
+  // For today, show slots for the next 4 hours
+  // For future dates, show slots for the entire day (6 AM to 10 PM)
+  const endHour = isToday ? startHour + 4 : 22;
+  
+  // Generate time slots in 30-minute increments
+  for (let hour = startHour; hour <= endHour; hour++) {
+    for (let minute of [0, 30]) {
+      // For today, skip time slots that have already passed
+      if (isToday && 
+          hour === now.getHours() && 
+          minute <= now.getMinutes()) {
+        continue;
+      }
+      
+      // Generate a surge value based on time of day and whether it's a weekend
+      let surge = 1.0;
+      const isWeekend = date.getDay() === 0 || date.getDay() === 6;
+      
+      // Base multiplier is higher on weekends
+      const baseMultiplier = isWeekend ? 1.2 : 1.0;
+      
+      // Morning rush (7-9 AM) - higher on weekdays
+      if (hour >= 7 && hour <= 9 && !isWeekend) {
+        surge = 1.3 + Math.random() * 0.4;
+      }
+      // Evening rush (4-7 PM) - high on all days
+      else if (hour >= 16 && hour <= 19) {
+        surge = 1.5 + Math.random() * 0.7;
+      }
+      // Late night (10 PM - 2 AM) - higher on weekends
+      else if ((hour >= 22 || hour <= 2) && isWeekend) {
+        surge = 1.4 + Math.random() * 0.5;
+      }
+      // Late night (10 PM - 2 AM) - lower on weekdays
+      else if (hour >= 22 || hour <= 2) {
+        surge = 1.2 + Math.random() * 0.3;
+      }
+      
+      // Apply the base multiplier
+      surge *= baseMultiplier;
+      
+      // Add some randomness
+      surge += (Math.random() - 0.5) * 0.2;
+      
+      // Ensure minimum surge of 1.0 and round to 1 decimal place
+      surge = Math.max(1.0, Math.round(surge * 10) / 10);
+      
+      // Format the time
+      const timeString = `${hour % 12 || 12}:${minute === 0 ? '00' : minute} ${hour >= 12 ? 'PM' : 'AM'}`;
+      
+      slots.push({
+        hour,
+        minute,
+        time: timeString,
+        surge
+      });
+    }
+  }
+  
+  return slots;
+};
+
+const calculatePriceLockSavings = (timelineData: TimelineDataItem[]): PriceLockInfo => {
+  const basePrice = 25.00;
+  const maxSurge = Math.max(...timelineData.map(item => item.surge)) || 1.5;
+  const projectedPeak = basePrice * maxSurge;
+  const lockedPrice = basePrice * 1.1; // 10% above base
+  const savingsPercent = Math.round(((projectedPeak - lockedPrice) / projectedPeak) * 100);
+  
+  return {
+    lockedPrice,
+    projectedPeak,
+    savingsPercent
+  };
+};
+
+// Convert TimelineDataItem to SurgePrediction format for SurgeTimeline
+const convertToSurgePredictions = (data: TimelineDataItem[], selectedDate: Date): { timestamp: string; multiplier: number }[] => {
+  return data.map(item => {
+    // Create a new date object based on the selected date
+    const date = new Date(selectedDate);
+    date.setHours(item.hour, 0, 0, 0);
+    return {
+      timestamp: date.toISOString(),
+      multiplier: item.surge
+    };
+  });
+};
+
+/* Main Dashboard component */
 const Dashboard: React.FC = () => {
   const [css] = useStyletron();
-  const routeId = 'some-route-id';
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
-  const [currentData, setCurrentData] = useState<any>(null);
-  const [currentMonth, setCurrentMonth] = useState<Date>(new Date());
-  const [timelineData, setTimelineData] = useState<any[]>([]);
+  const [currentTime, setCurrentTime] = useState<Date>(new Date());
+  const [timelineData, setTimelineData] = useState<TimelineDataItem[]>([]);
+  const [routes, setRoutes] = useState<RouteItem[]>([]);
+  const [timeSlots, setTimeSlots] = useState<TimeSlot[]>([]);
+  const [selectedTimeSlot, setSelectedTimeSlot] = useState<TimeSlot | null>(null);
+  const [priceLockInfo, setPriceLockInfo] = useState<PriceLockInfo | null>(null);
+  const [selectedRoute, setSelectedRoute] = useState<RouteItem | null>(null);
+  const [showPriceLock, setShowPriceLock] = useState<boolean>(false);
   
-  // Helper function for notification card styling
-  const getNotificationCardStyle = (color: string) => {
-    const isWarning = color === '#FFC107';
-    return css({
-      backgroundColor: isWarning ? 'rgba(255, 248, 225, 1)' : 'rgba(232, 240, 254, 1)',
-      padding: '16px', 
-      borderRadius: '8px',
-      marginBottom: isWarning ? '16px' : '0px',
-      borderLeftWidth: '4px',
-      borderLeftStyle: 'solid',
-      borderLeftColor: color,
-      borderRightWidth: '0px',
-      borderTopWidth: '0px',
-      borderBottomWidth: '0px',
-      borderRightStyle: 'solid',
-      borderTopStyle: 'solid',
-      borderBottomStyle: 'solid',
-      borderRightColor: 'transparent',
-      borderTopColor: 'transparent',
-      borderBottomColor: 'transparent'
-    });
-  };
-  
-  // Base data patterns for different days
-  const patterns = {
-    weekday: {
-      morning: [1.2, 1.5, 1.8, 1.6, 1.4],
-      afternoon: [1.3, 1.4, 1.6, 1.9, 2.1],
-      evening: [1.7, 2.0, 2.3, 2.1, 1.8]
-    },
-    weekend: {
-      morning: [1.1, 1.2, 1.3, 1.4, 1.3],
-      afternoon: [1.5, 1.7, 1.9, 2.0, 1.8],
-      evening: [2.1, 2.4, 2.6, 2.3, 2.0]
-    },
-    holiday: {
-      morning: [1.3, 1.5, 1.7, 1.6, 1.5],
-      afternoon: [1.8, 2.0, 2.2, 2.1, 1.9],
-      evening: [2.3, 2.5, 2.8, 2.6, 2.2]
-    },
-    rainy: {
-      morning: [1.5, 1.8, 2.0, 1.9, 1.7],
-      afternoon: [2.0, 2.2, 2.4, 2.3, 2.1],
-      evening: [2.5, 2.8, 3.0, 2.8, 2.5]
-    }
-  };
-  
-  // Weather conditions for different dates
-  const weatherConditions = [
-    "Sunny", "Partly Cloudy", "Cloudy", "Rainy", "Foggy"
-  ];
-  
-  // Areas for different dates
-  const areas = [
-    "Downtown", "Financial District", "Marina", "Mission", "SoMa", 
-    "North Beach", "Haight-Ashbury", "Richmond", "Sunset", "Castro"
-  ];
-  
-  // Events for different dates
-  const events = [
-    ["Rush Hour"], 
-    ["Morning Commute"], 
-    ["Lunch Rush"], 
-    ["Concert", "Rush Hour"], 
-    ["Sports Game"], 
-    ["Festival"], 
-    ["Weekend"], 
-    ["Street Fair", "Weekend"], 
-    ["Conference"], 
-    ["Holiday"]
-  ];
-  
-  // Generate data for a specific date
-  const generateDataForDate = (date: Date) => {
-    // Use the date to seed randomness
-    const dateNum = date.getDate() + date.getMonth() * 31;
-    const isWeekend = date.getDay() === 0 || date.getDay() === 6;
-    const isHoliday = dateNum % 10 === 0; // Every 10th day is a "holiday"
-    const isRainy = dateNum % 7 === 0; // Every 7th day is "rainy"
-    
-    // Select pattern based on date characteristics
-    let patternType;
-    if (isRainy) patternType = patterns.rainy;
-    else if (isHoliday) patternType = patterns.holiday;
-    else if (isWeekend) patternType = patterns.weekend;
-    else patternType = patterns.weekday;
-    
-    // Select area and weather based on date
-    const areaIndex = dateNum % areas.length;
-    const area = areas[areaIndex];
-    const weatherIndex = dateNum % weatherConditions.length;
-    const weather = weatherConditions[weatherIndex];
-    
-    // Select events based on date
-    const eventIndex = dateNum % events.length;
-    const eventList = events[eventIndex];
-    
-    // Generate data for the selected date
-    const result = [];
-    
-    // Morning data (8 AM - 12 PM)
-    for (let i = 0; i < 5; i++) {
-      const hour = 8 + i;
-      const timestamp = new Date(date);
-      timestamp.setHours(hour, 0, 0, 0);
-      
-      // Add some randomness to the multiplier
-      const randomFactor = 0.9 + (dateNum % 20) / 100;
-      const multiplier = patternType.morning[i] * randomFactor;
-      
-      result.push({
-        id: `${date.toISOString().split('T')[0]}-morning-${i}`,
-        timestamp: timestamp.toISOString(),
-        multiplier: parseFloat(multiplier.toFixed(1)),
-        area,
-        weather,
-        events: eventList
-      });
-    }
-    
-    // Afternoon data (1 PM - 5 PM)
-    for (let i = 0; i < 5; i++) {
-      const hour = 13 + i;
-      const timestamp = new Date(date);
-      timestamp.setHours(hour, 0, 0, 0);
-      
-      // Add some randomness to the multiplier
-      const randomFactor = 0.9 + (dateNum % 20) / 100;
-      const multiplier = patternType.afternoon[i] * randomFactor;
-      
-      result.push({
-        id: `${date.toISOString().split('T')[0]}-afternoon-${i}`,
-        timestamp: timestamp.toISOString(),
-        multiplier: parseFloat(multiplier.toFixed(1)),
-        area,
-        weather,
-        events: eventList
-      });
-    }
-    
-    // Evening data (6 PM - 10 PM)
-    for (let i = 0; i < 5; i++) {
-      const hour = 18 + i;
-      const timestamp = new Date(date);
-      timestamp.setHours(hour, 0, 0, 0);
-      
-      // Add some randomness to the multiplier
-      const randomFactor = 0.9 + (dateNum % 20) / 100;
-      const multiplier = patternType.evening[i] * randomFactor;
-      
-      result.push({
-        id: `${date.toISOString().split('T')[0]}-evening-${i}`,
-        timestamp: timestamp.toISOString(),
-        multiplier: parseFloat(multiplier.toFixed(1)),
-        area,
-        weather,
-        events: eventList
-      });
-    }
-    
-    return result;
-  };
-  
-  // Function to get data for the selected date
-  const getDataForDate = (date: Date) => {
-    // Format date to compare just the day, month, and year
-    const formattedSelectedDate = format(date, 'yyyy-MM-dd');
-    
-    // Generate data for the selected date
-    const dateData = generateDataForDate(date);
-    
-    // Return the data for the current time of day
-    const currentHour = new Date().getHours();
-    let timeIndex;
-    
-    if (currentHour >= 8 && currentHour < 13) {
-      // Morning
-      timeIndex = currentHour - 8;
-    } else if (currentHour >= 13 && currentHour < 18) {
-      // Afternoon
-      timeIndex = currentHour - 13;
-    } else {
-      // Evening or night (default to evening)
-      timeIndex = Math.min(currentHour - 18, 4);
-      if (timeIndex < 0) timeIndex = 0;
-    }
-    
-    // Get the appropriate time segment
-    let segment;
-    if (currentHour >= 8 && currentHour < 13) {
-      segment = dateData.slice(0, 5); // Morning
-    } else if (currentHour >= 13 && currentHour < 18) {
-      segment = dateData.slice(5, 10); // Afternoon
-    } else {
-      segment = dateData.slice(10, 15); // Evening
-    }
-    
-    // Return the current time's data or the first item if not found
-    return segment[Math.min(timeIndex, segment.length - 1)];
-  };
-  
-  // Update current data and timeline data when selected date changes
+  // Update current time every minute
   useEffect(() => {
-    // Set current data for the status card
-    setCurrentData(getDataForDate(selectedDate));
+    const timer = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 60000);
     
-    // Generate timeline data for the selected date
-    const newTimelineData = generateDataForDate(selectedDate);
+    return () => clearInterval(timer);
+  }, []);
+  
+  // Update data when selected date changes
+  useEffect(() => {
+    const newTimelineData = generateMockTimelineData(selectedDate);
+    const newRoutes = generateMockRoutes(selectedDate);
+    const newTimeSlots = generateTimeSlots(selectedDate);
     
-    // Add some historical data (previous day)
-    const previousDay = new Date(selectedDate);
-    previousDay.setDate(previousDay.getDate() - 1);
-    const previousDayData = generateDataForDate(previousDay).slice(-5); // Just evening data
-    
-    // Add some future data (next day)
-    const nextDay = new Date(selectedDate);
-    nextDay.setDate(nextDay.getDate() + 1);
-    const nextDayData = generateDataForDate(nextDay).slice(0, 5); // Just morning data
-    
-    // Combine all data
-    setTimelineData([...previousDayData, ...newTimelineData, ...nextDayData]);
+    setTimelineData(newTimelineData);
+    setRoutes(newRoutes);
+    setTimeSlots(newTimeSlots);
+    setSelectedTimeSlot(null);
+    setSelectedRoute(newRoutes.find(route => route.isBest) || null);
+    setPriceLockInfo(null);
+    setShowPriceLock(false);
   }, [selectedDate]);
   
-  // Calendar navigation functions
-  const nextMonth = () => {
-    setCurrentMonth(addMonths(currentMonth, 1));
-  };
-  
-  const prevMonth = () => {
-    setCurrentMonth(subMonths(currentMonth, 1));
-  };
-  
-  // Generate calendar days
-  const getDaysInMonth = () => {
-    const start = startOfMonth(currentMonth);
-    const end = endOfMonth(currentMonth);
-    return eachDayOfInterval({ start, end });
-  };
-  
-  // Get day class based on state
-  const getDayClass = (day: Date) => {
-    const baseStyles = {
-      width: '36px',
-      height: '36px',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      borderRadius: '50%',
-      cursor: 'pointer',
-      margin: '2px',
-      fontSize: '14px',
-      transition: 'all 0.2s ease',
-      ':hover': {
-        backgroundColor: 'rgba(255, 255, 255, 0.1)'
-      }
-    };
-    
-    // Selected day
-    if (isSameDay(day, selectedDate)) {
-      return css({
-        ...baseStyles,
-        backgroundColor: '#276EF1',
-        color: 'white',
-        fontWeight: 'bold'
-      } as any);
-    }
-    
-    // Today
-    if (isToday(day)) {
-      return css({
-        ...baseStyles,
-        border: '1px solid #276EF1',
-        fontWeight: 'bold'
-      } as any);
-    }
-    
-    // Days with data - all days have data in our case
-    return css({
-      ...baseStyles,
-      color: isSameMonth(day, currentMonth) ? 'white' : 'rgba(255, 255, 255, 0.3)',
-      cursor: 'pointer'
-    } as any);
-  };
-
-  return (
-    <div>
-      <HeadingLarge>Surge Prediction Dashboard</HeadingLarge>
+  // Update price lock info when time slot or route changes
+  useEffect(() => {
+    if (selectedTimeSlot) {
+      // Calculate price lock info based on selected time slot
+      const relevantTimelineData = timelineData.filter(item => 
+        item.hour >= selectedTimeSlot.hour
+      );
       
-      <Grid>
-        <Cell span={[4, 8, 8]}>
-          <SurgeTimeline routeId={routeId} initialData={timelineData} hideDatePicker={true} />
-        </Cell>
+      const newPriceLockInfo = calculatePriceLockSavings(relevantTimelineData);
+      
+      // Adjust price based on selected route (or best route if none selected)
+      const route = selectedRoute || routes.find(r => r.isBest) || routes[0];
+      if (route) {
+        // Extract the numeric price from the route price string
+        const priceString = route.price.replace('$', '');
+        const basePrice = parseFloat(priceString);
         
-        <Cell span={[4, 8, 4]}>
-          <div className={css({ marginBottom: '24px' })}>
-            <CardWrapper title="Current Status">
-              <div className={css({
-                backgroundColor: 'var(--uber-white)',
-                color: 'var(--dark-gray)',
-                borderRadius: '8px',
-                padding: '16px'
-              })}>
-                {currentData && (
-                  <>
-                    <div className={css({
-                      display: 'flex',
-                      alignItems: 'center',
-                      marginBottom: '16px'
-                    })}>
-                      <div className={css({
-                        width: '12px',
-                        height: '12px',
-                        borderRadius: '50%',
-                        backgroundColor: selectedDate > new Date() ? 'var(--uber-blue)' : 'var(--success)',
-                        marginRight: '8px'
-                      })} />
-                      <div className={css({
-                        fontWeight: 'bold'
-                      })}>
-                        {selectedDate > new Date() ? 'Predicted' : 'Historical'}
-                      </div>
-                      <div className={css({
-                        marginLeft: 'auto',
-                        fontSize: 'var(--font-size-caption)',
-                        color: 'var(--medium-gray)'
-                      })}>
-                        {format(new Date(currentData.timestamp), 'MMM d, yyyy h:mm a')}
-                      </div>
-                    </div>
-                    
-                    <div className={css({
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      marginBottom: '16px'
-                    })}>
-                      <div>
-                        <div className={css({
-                          fontSize: 'var(--font-size-caption)',
-                          color: 'var(--medium-gray)',
-                          marginBottom: '4px'
-                        })}>
-                          Multiplier
-                        </div>
-                        <div className={css({
-                          fontSize: 'var(--font-size-heading-medium)',
-                          fontWeight: 'bold',
-                          color: currentData.multiplier > 1.5 ? 'var(--high-demand)' : 'var(--dark-gray)'
-                        })}>
-                          {currentData.multiplier.toFixed(1)}x
-                        </div>
-                      </div>
-                      
-                      <div>
-                        <div className={css({
-                          fontSize: 'var(--font-size-caption)',
-                          color: 'var(--medium-gray)',
-                          marginBottom: '4px',
-                          textAlign: 'right'
-                        })}>
-                          Area
-                        </div>
-                        <div className={css({
-                          fontSize: 'var(--font-size-body)',
-                          fontWeight: 'bold',
-                          textAlign: 'right'
-                        })}>
-                          {currentData.area}
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <div className={css({
-                      marginBottom: '16px'
-                    })}>
-                      <div className={css({
-                        fontSize: 'var(--font-size-caption)',
-                        color: 'var(--medium-gray)',
-                        marginBottom: '4px'
-                      })}>
-                        Weather
-                      </div>
-                      <div className={css({
-                        fontSize: 'var(--font-size-body)'
-                      })}>
-                        {currentData.weather}
-                      </div>
-                    </div>
-                    
-                    <div className={css({
-                      display: 'flex',
-                      flexWrap: 'wrap',
-                      gap: '8px'
-                    })}>
-                      {currentData.events && currentData.events.map((event: string, index: number) => (
-                        <Tag key={index} closeable={false} kind={event.includes('Rush') ? 'warning' : 'neutral'}>
-                          {event}
-                        </Tag>
-                      ))}
-                      {currentData.multiplier > 1.5 && (
-                        <Tag closeable={false} kind="negative">
-                          High Demand
-                        </Tag>
-                      )}
-                      {selectedDate <= new Date() && (
-                        <Tag closeable={false} kind="positive">
-                          Price Lock Available
-                        </Tag>
-                      )}
-                    </div>
-                  </>
-                )}
-              </div>
-            </CardWrapper>
+        // Calculate adjusted prices
+        const adjustedLockedPrice = basePrice * (1 + selectedTimeSlot.surge * 0.1);
+        const adjustedPeakPrice = basePrice * (1 + newPriceLockInfo.projectedPeak * 0.1);
+        
+        setPriceLockInfo({
+          lockedPrice: adjustedLockedPrice,
+          projectedPeak: adjustedPeakPrice,
+          savingsPercent: newPriceLockInfo.savingsPercent
+        });
+      } else {
+        // Fallback if no route is available
+        setPriceLockInfo({
+          lockedPrice: 15.0 * selectedTimeSlot.surge,
+          projectedPeak: 15.0 * newPriceLockInfo.projectedPeak,
+          savingsPercent: newPriceLockInfo.savingsPercent
+        });
+      }
+      
+      // Always show price lock when a time slot is selected
+      setShowPriceLock(true);
+    } else {
+      // Hide price lock when no time slot is selected
+      setShowPriceLock(false);
+      setPriceLockInfo(null);
+    }
+  }, [selectedTimeSlot, selectedRoute, timelineData, routes]);
+  
+  // Handle route selection
+  const handleRouteSelect = (route: RouteItem) => {
+    setSelectedRoute(route);
+  };
+  
+  // Handle time slot selection
+  const handleTimeSlotSelect = (timeSlot: TimeSlot | null) => {
+    setSelectedTimeSlot(timeSlot);
+    
+    if (timeSlot) {
+      // If no route is selected, select the best route by default
+      if (!selectedRoute) {
+        const bestRoute = routes.find(route => route.isBest);
+        if (bestRoute) {
+          setSelectedRoute(bestRoute);
+        }
+      }
+      
+      // Ensure showPriceLock is set to true when a time slot is selected
+      setShowPriceLock(true);
+    } else {
+      // If timeSlot is null, hide the price lock
+      setShowPriceLock(false);
+    }
+  };
+  
+  // Format current time for display
+  const formattedCurrentTime = format(currentTime, 'h:mm a');
+  
+  // Convert timeline data to the format expected by SurgeTimeline
+  const surgePredictions = convertToSurgePredictions(timelineData, selectedDate);
+  
+  // Get the current hour's surge for CurrentStatusCard
+  const currentHour = currentTime.getHours();
+  const currentSurgeData = timelineData.find(item => item.hour === currentHour);
+  const currentSurge = currentSurgeData?.surge || 1.0;
+  
+  // Define theme colors
+  const theme = {
+    primary: '#276EF1',
+    secondary: '#000000',
+    success: '#05A357',
+    warning: '#FFC043',
+    error: '#E11900',
+    textPrimary: '#000000',
+    textSecondary: '#545454',
+    textTertiary: '#767676',
+    border: '#EEEEEE',
+    cardBackground: '#FFFFFF',
+    shadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
+    background: '#F7F8FA'
+  };
+  
+  return (
+    <div className={css({
+      padding: '24px',
+      backgroundColor: theme.background,
+      minHeight: '100vh',
+      color: theme.textPrimary,
+      fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+    })}>
+
+      <div className={css({
+        maxWidth: '1200px',
+        margin: '0 auto'
+      })}>
+        {/* Header */}
+        <div className={css({
+          marginBottom: '32px',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center'
+        })}>
+          <div>
+            <HeadingLarge 
+              overrides={{
+                Block: {
+                  style: {
+                    color: theme.secondary,
+                    fontWeight: '700',
+                    margin: 0,
+                    fontSize: '32px'
+                  }
+                }
+              }}
+            >
+              Uber Surge Prediction
+            </HeadingLarge>
+            <p className={css({
+              fontSize: '16px',
+              color: theme.textSecondary,
+              margin: '8px 0 0 0',
+              fontWeight: '500'
+            })}>
+              {format(selectedDate, 'EEEE, MMMM d, yyyy')}
+            </p>
           </div>
           
-          <div className={css({ marginBottom: '24px' })}>
-            <CardWrapper title="Select Date">
-              <div className={css({
-                backgroundColor: '#121212',
-                color: 'white',
-                padding: '16px',
-                borderRadius: '8px'
-              })}>
-                {/* Calendar header */}
-                <div className={css({
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  marginBottom: '16px'
-                })}>
-                  <Button 
-                    kind="tertiary" 
-                    size="mini" 
-                    onClick={prevMonth}
-                    overrides={{
-                      BaseButton: {
-                        style: {
-                          backgroundColor: 'transparent',
-                          color: 'white'
-                        }
-                      }
-                    }}
-                  >
-                    <ChevronLeft size={24} />
-                  </Button>
-                  
-                  <div className={css({
-                    fontWeight: 'bold',
-                    fontSize: '16px'
-                  })}>
-                    {format(currentMonth, 'MMMM yyyy')}
-                  </div>
-                  
-                  <Button 
-                    kind="tertiary" 
-                    size="mini" 
-                    onClick={nextMonth}
-                    overrides={{
-                      BaseButton: {
-                        style: {
-                          backgroundColor: 'transparent',
-                          color: 'white'
-                        }
-                      }
-                    }}
-                  >
-                    <ChevronRight size={24} />
-                  </Button>
-                </div>
-                
-                {/* Weekday headers */}
-                <div className={css({
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(7, 1fr)',
-                  textAlign: 'center',
-                  marginBottom: '8px'
-                })}>
-                  {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day, index) => (
-                    <div key={index} className={css({
-                      fontSize: '14px',
-                      fontWeight: 'bold',
-                      color: 'rgba(255, 255, 255, 0.7)'
-                    })}>
-                      {day}
-                    </div>
-                  ))}
-                </div>
-                
-                {/* Calendar grid */}
-                <div className={css({
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(7, 1fr)',
-                  gap: '2px',
-                  justifyItems: 'center'
-                })}>
-                  {getDaysInMonth().map((day, index) => (
-                    <div 
-                      key={index} 
-                      className={getDayClass(day)}
-                      onClick={() => setSelectedDate(day)}
-                    >
-                      {format(day, 'd')}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </CardWrapper>
+          <div className={css({
+            fontSize: '16px',
+            color: theme.textSecondary,
+            backgroundColor: theme.cardBackground,
+            padding: '10px 20px',
+            borderRadius: '24px',
+            boxShadow: theme.shadow,
+            display: 'flex',
+            alignItems: 'center',
+            fontWeight: '500'
+          })}>
+            <div className={css({
+              width: '10px',
+              height: '10px',
+              borderRadius: '50%',
+              backgroundColor: theme.success,
+              marginRight: '10px'
+            })}></div>
+            Live: {formattedCurrentTime}
           </div>
+        </div>
+        
+        <Grid>
+          {/* Left column - Calendar and Status */}
+          <Cell span={[4, 8, 4]}>
+            <div className={css({ marginBottom: '24px' })}>
+              <DateSelector selectedDate={selectedDate} onDateChange={setSelectedDate} />
+            </div>
+            
+            <div className={css({ marginBottom: '24px' })}>
+              <CurrentStatusCard 
+                selectedDate={selectedDate} 
+                currentSurge={currentSurge} 
+              />
+            </div>
+          </Cell>
           
-          <CardWrapper title="Recent Notifications">
-            <div className={getNotificationCardStyle('#FFC107')}>
-              <div className={css({ 
-                fontWeight: 'bold', 
-                marginBottom: '8px',
-                color: '#F57C00'
+          {/* Right column - Surge Timeline */}
+          <Cell span={[4, 8, 8]}>
+            <div className={css({
+              backgroundColor: 'white',
+              borderRadius: '8px',
+              boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
+              overflow: 'hidden'
+            })}>
+              <div className={css({
+                padding: '16px 16px 0 16px'
               })}>
-                Pre-Surge Warning
+                {/* Removing the duplicate title and subtitle */}
               </div>
-              <div className={css({ color: 'rgba(0, 0, 0, 0.7)' })}>
-                Expecting {(currentData?.multiplier + 0.3).toFixed(1)}x surge around {new Date().getHours() < 12 ? '5 PM' : '8 PM'} today. Book now to avoid higher prices.
+              <div className={css({ padding: '16px' })}>
+                <SurgeTimeline 
+                  routeId="default-route" 
+                  initialData={surgePredictions} 
+                  hideDatePicker={true}
+                />
               </div>
             </div>
             
-            <div className={getNotificationCardStyle('#4285F4')}>
-              <div className={css({ 
-                fontWeight: 'bold', 
-                marginBottom: '8px',
-                color: '#1976D2'
-              })}>
-                Price Lock Available
-              </div>
-              <div className={css({ color: 'rgba(0, 0, 0, 0.7)' })}>
-                Lock in standard rates for your {new Date().getHours() < 12 ? 'evening' : 'morning'} commute before prices increase.
-              </div>
+            <div className={css({ marginTop: '24px' })}>
+              <AlternativeRoutesCard 
+                routes={routes} 
+                onSelectRoute={handleRouteSelect}
+                selectedRouteId={selectedRoute?.route}
+              />
             </div>
-          </CardWrapper>
-        </Cell>
-      </Grid>
+          </Cell>
+          
+          {/* Bottom row */}
+          <Cell span={[4, 8, 12]}>
+            <div className={css({ marginTop: '24px' })}>
+              <TimeSlotsCard 
+                timeSlots={timeSlots} 
+                selectedTimeSlot={selectedTimeSlot} 
+                onSelectTimeSlot={handleTimeSlotSelect}
+              />
+            </div>
+          </Cell>
+        </Grid>
+      </div>
+      
+      {/* Price Lock Status Bar - Always visible */}
+      <PriceLockStatusBar 
+        lockedPrice={priceLockInfo ? priceLockInfo.lockedPrice : 25.0} 
+        projectedPeak={priceLockInfo ? priceLockInfo.projectedPeak : 35.0} 
+        savingsPercent={priceLockInfo ? priceLockInfo.savingsPercent : 28}
+      />
+      
+      {/* Add padding at the bottom to account for the fixed status bar */}
+      <div className={css({ height: '80px' })}></div>
     </div>
   );
 };
 
-export default Dashboard; 
+export default Dashboard;

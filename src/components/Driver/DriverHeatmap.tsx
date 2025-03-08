@@ -17,12 +17,38 @@ import { Map } from 'react-map-gl/maplibre';
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { format } from 'date-fns';
+import { FlyToInterpolator } from '@deck.gl/core';
 
-// Bay Area coordinates (centered between SF and Oakland)
+// Define major US cities with their coordinates
+const US_CITIES = [
+  { name: "San Francisco", longitude: -122.4194, latitude: 37.7749, zoom: 12 },
+  { name: "New York", longitude: -74.0060, latitude: 40.7128, zoom: 12 },
+  { name: "Los Angeles", longitude: -118.2437, latitude: 34.0522, zoom: 11 },
+  { name: "Chicago", longitude: -87.6298, latitude: 41.8781, zoom: 11 },
+  { name: "Miami", longitude: -80.1918, latitude: 25.7617, zoom: 12 },
+  { name: "Seattle", longitude: -122.3321, latitude: 47.6062, zoom: 12 },
+  { name: "Austin", longitude: -97.7431, latitude: 30.2672, zoom: 12 },
+  { name: "Boston", longitude: -71.0589, latitude: 42.3601, zoom: 13 },
+  { name: "Denver", longitude: -104.9903, latitude: 39.7392, zoom: 12 },
+  { name: "Washington DC", longitude: -77.0369, latitude: 38.9072, zoom: 12 }
+];
+
+// Add a "View All Cities" option
+const ALL_CITIES_OPTION = {
+  name: "All Cities",
+  longitude: -98.5795, // Center of US
+  latitude: 39.8283,
+  zoom: 4
+};
+
+// Default to San Francisco
+const DEFAULT_CITY = US_CITIES[0];
+
+// Initial view state based on default city
 const INITIAL_VIEW_STATE = {
-  longitude: -122.2712,
-  latitude: 37.7750,
-  zoom: 10,
+  longitude: DEFAULT_CITY.longitude,
+  latitude: DEFAULT_CITY.latitude,
+  zoom: DEFAULT_CITY.zoom,
   pitch: 45,
   bearing: 0
 };
@@ -59,6 +85,8 @@ const DriverHeatmap: React.FC<DriverHeatmapProps> = ({ selectedDate = new Date()
   const [heatmapData, setHeatmapData] = useState<HeatmapPoint[]>([]);
   const [isInfoSheetOpen, setIsInfoSheetOpen] = useState(false);
   const [viewState, setViewState] = useState<ViewState>(INITIAL_VIEW_STATE);
+  const [selectedCity, setSelectedCity] = useState<string>(DEFAULT_CITY.name);
+  const [showAllCities, setShowAllCities] = useState<boolean>(false);
   const deckRef = useRef(null);
   
   // Width and height for the heatmap
@@ -67,134 +95,82 @@ const DriverHeatmap: React.FC<DriverHeatmapProps> = ({ selectedDate = new Date()
   
   // Function to check if a point is on land (not in water)
   const isPointOnLand = (longitude: number, latitude: number): boolean => {
-    // Define specific land areas as polygons (simplified rectangles)
-    const landAreas = [
-      // San Francisco
-      {
-        name: "San Francisco",
-        minLong: -122.52,
-        maxLong: -122.35,
-        minLat: 37.70,
-        maxLat: 37.83
+    // City-specific water boundaries
+    const waterBoundaries: Record<string, (lon: number, lat: number) => boolean> = {
+      "San Francisco": (lon, lat) => {
+        // Pacific Ocean (West of the Bay Area)
+        if (lon <= -122.52) return false;
+        
+        // Central Bay
+        if (lon >= -122.52 && lon <= -122.15 && 
+            lat >= 37.70 && lat <= 37.90) {
+          // San Francisco Peninsula
+          if (lon <= -122.38 && lat >= 37.70 && lat <= 37.83) {
+            return true;
+          }
+          
+          // Oakland/Berkeley/Alameda
+          if (lon >= -122.32 && lon <= -122.20 && 
+              lat >= 37.73 && lat <= 37.88) {
+            return true;
+          }
+          
+          // Treasure Island
+          if (lon >= -122.38 && lon <= -122.36 && 
+              lat >= 37.81 && lat <= 37.83) {
+            return true;
+          }
+          
+          // Default to water for the central bay
+          return false;
+        }
+        
+        return true;
       },
-      // Oakland/Berkeley
-      {
-        name: "Oakland/Berkeley",
-        minLong: -122.35,
-        maxLong: -122.20,
-        minLat: 37.72,
-        maxLat: 37.89
+      "New York": (lon, lat) => {
+        // Atlantic Ocean
+        if (lon <= -74.05 && lat <= 40.60) return false;
+        
+        // East River
+        if (lon >= -74.02 && lon <= -73.92 && 
+            lat >= 40.70 && lat <= 40.80) return false;
+        
+        // Hudson River
+        if (lon >= -74.02 && lon <= -73.98 && 
+            lat >= 40.70 && lat <= 40.85) return false;
+        
+        return true;
       },
-      // Alameda Island
-      {
-        name: "Alameda",
-        minLong: -122.31,
-        maxLong: -122.24,
-        minLat: 37.73,
-        maxLat: 37.79
+      "Chicago": (lon, lat) => {
+        // Lake Michigan
+        if (lon >= -87.65 && lat >= 41.85) return false;
+        
+        return true;
       },
-      // South SF / Daly City
-      {
-        name: "South SF",
-        minLong: -122.47,
-        maxLong: -122.38,
-        minLat: 37.63,
-        maxLat: 37.70
-      },
-      // San Mateo
-      {
-        name: "San Mateo",
-        minLong: -122.35,
-        maxLong: -122.27,
-        minLat: 37.53,
-        maxLat: 37.58
-      },
-      // Redwood City
-      {
-        name: "Redwood City",
-        minLong: -122.25,
-        maxLong: -122.18,
-        minLat: 37.47,
-        maxLat: 37.53
-      },
-      // Palo Alto
-      {
-        name: "Palo Alto",
-        minLong: -122.20,
-        maxLong: -122.10,
-        minLat: 37.38,
-        maxLat: 37.46
-      },
-      // Mountain View
-      {
-        name: "Mountain View",
-        minLong: -122.12,
-        maxLong: -122.05,
-        minLat: 37.36,
-        maxLat: 37.42
-      },
-      // Sunnyvale
-      {
-        name: "Sunnyvale",
-        minLong: -122.07,
-        maxLong: -121.98,
-        minLat: 37.35,
-        maxLat: 37.41
-      },
-      // Santa Clara
-      {
-        name: "Santa Clara",
-        minLong: -122.00,
-        maxLong: -121.92,
-        minLat: 37.33,
-        maxLat: 37.39
-      },
-      // San Jose
-      {
-        name: "San Jose",
-        minLong: -121.95,
-        maxLong: -121.85,
-        minLat: 37.30,
-        maxLat: 37.38
-      },
-      // Fremont
-      {
-        name: "Fremont",
-        minLong: -122.05,
-        maxLong: -121.95,
-        minLat: 37.50,
-        maxLat: 37.58
-      },
-      // Hayward
-      {
-        name: "Hayward",
-        minLong: -122.12,
-        maxLong: -122.02,
-        minLat: 37.62,
-        maxLat: 37.68
-      }
-    ];
-    
-    // Check if the point is within any of the defined land areas
-    for (const area of landAreas) {
-      if (
-        longitude >= area.minLong && 
-        longitude <= area.maxLong && 
-        latitude >= area.minLat && 
-        latitude <= area.maxLat
-      ) {
+      "Miami": (lon, lat) => {
+        // Atlantic Ocean
+        if (lon >= -80.12 && lat <= 25.76) return false;
+        
+        // Biscayne Bay
+        if (lon >= -80.20 && lon <= -80.15 && 
+            lat >= 25.75 && lat <= 25.85) return false;
+        
         return true;
       }
+    };
+    
+    // Use city-specific water detection if available
+    if (waterBoundaries[selectedCity]) {
+      return waterBoundaries[selectedCity](longitude, latitude);
     }
     
-    // If not in any defined land area, assume it's water
-    return false;
+    // Default land detection for cities without specific water boundaries
+    return true;
   };
   
   // Generate more realistic mock data
   useEffect(() => {
     const generateMockData = () => {
-      // Create a realistic pattern for San Francisco
       const mockData: HeatmapPoint[] = [];
       
       // Use the date to seed randomness
@@ -203,264 +179,227 @@ const DriverHeatmap: React.FC<DriverHeatmapProps> = ({ selectedDate = new Date()
       const isHoliday = dateNum % 10 === 0; // Every 10th day is a "holiday"
       const isRainy = dateNum % 7 === 0; // Every 7th day is "rainy"
       
-      // Define Bay Area neighborhoods and landmarks
-      const bayAreaHotspots = [
-        // San Francisco
-        { 
-          name: "Financial District",
-          longitude: -122.399,
-          latitude: 37.794,
-          intensity: isWeekend ? 0.6 : 0.9, 
-          radius: isWeekend ? 0.3 : 0.4 
-        },
-        { 
-          name: "Mission District",
-          longitude: -122.418,
-          latitude: 37.763,
-          intensity: isWeekend ? 0.9 : 0.7, 
-          radius: isWeekend ? 0.25 : 0.25 
-        },
-        { 
-          name: "SoMa",
-          longitude: -122.401,
-          latitude: 37.778,
-          intensity: isHoliday ? 0.95 : 0.8, 
-          radius: isHoliday ? 0.45 : 0.35 
-        },
-        { 
-          name: "Fisherman's Wharf",
-          longitude: -122.409,
-          latitude: 37.806,
-          intensity: isWeekend || isHoliday ? 0.85 : 0.7, 
-          radius: isWeekend ? 0.35 : 0.25 
-        },
-        { 
-          name: "Marina",
-          longitude: -122.437,
-          latitude: 37.803,
-          intensity: isRainy ? 0.5 : 0.8,  
-          radius: isRainy ? 0.2 : 0.3 
-        },
-        { 
-          name: "Salesforce Tower",
-          longitude: -122.396,
-          latitude: 37.789,
-          intensity: isWeekend ? 0.6 : 0.85, 
-          radius: isWeekend ? 0.2 : 0.3 
-        },
-        { 
-          name: "Oracle Park",
-          longitude: -122.389,
-          latitude: 37.778,
-          intensity: (dateNum % 3 === 0) ? 0.9 : 0.7, 
-          radius: (dateNum % 3 === 0) ? 0.4 : 0.25 
-        },
-        { 
-          name: "Alamo Square",
-          longitude: -122.434,
-          latitude: 37.776,
-          intensity: isWeekend ? 0.8 : 0.6, 
-          radius: isWeekend ? 0.3 : 0.2 
-        },
+      // If showing all cities or zoomed out enough, generate data for all cities
+      if (showAllCities || viewState.zoom < 6) {
+        // Generate data for all cities
+        US_CITIES.forEach(city => {
+          // Generate hotspots for this city
+          generateCityHotspots(city.name, city.longitude, city.latitude, mockData, {
+            dateNum,
+            isWeekend,
+            isHoliday,
+            isRainy
+          });
+        });
+      } else {
+        // Generate data just for the selected city
+        const selectedCityData = US_CITIES.find(city => city.name === selectedCity) || DEFAULT_CITY;
+        generateCityHotspots(selectedCity, selectedCityData.longitude, selectedCityData.latitude, mockData, {
+          dateNum,
+          isWeekend,
+          isHoliday,
+          isRainy
+        });
+      }
+      
+      return mockData;
+    };
+    
+    // Helper function to generate hotspots for a specific city
+    const generateCityHotspots = (
+      cityName: string, 
+      cityLongitude: number, 
+      cityLatitude: number, 
+      mockData: HeatmapPoint[],
+      conditions: {
+        dateNum: number,
+        isWeekend: boolean,
+        isHoliday: boolean,
+        isRainy: boolean
+      }
+    ) => {
+      const { dateNum, isWeekend, isHoliday, isRainy } = conditions;
+      
+      // Define city-specific hotspots
+      const cityHotspots: Record<string, any[]> = {
+        "San Francisco": [
+          // Financial District
+          { 
+            name: "Financial District",
+            longitude: -122.399,
+            latitude: 37.794,
+            intensity: isWeekend ? 0.6 : 0.9, 
+            radius: isWeekend ? 0.3 : 0.4 
+          },
+          // Mission District
+          { 
+            name: "Mission District",
+            longitude: -122.418,
+            latitude: 37.763,
+            intensity: isWeekend ? 0.9 : 0.7, 
+            radius: isWeekend ? 0.25 : 0.25 
+          },
+          // SoMa
+          { 
+            name: "SoMa",
+            longitude: -122.401,
+            latitude: 37.778,
+            intensity: isHoliday ? 0.95 : 0.8, 
+            radius: isHoliday ? 0.45 : 0.35 
+          },
+          // More SF hotspots...
+        ],
+        "New York": [
+          // Times Square
+          {
+            name: "Times Square",
+            longitude: -73.9855,
+            latitude: 40.7580,
+            intensity: isWeekend ? 0.9 : 0.8,
+            radius: 0.3
+          },
+          // Financial District
+          {
+            name: "Financial District",
+            longitude: -74.0090,
+            latitude: 40.7075,
+            intensity: isWeekend ? 0.5 : 0.9,
+            radius: isWeekend ? 0.2 : 0.4
+          },
+          // Central Park
+          {
+            name: "Central Park",
+            longitude: -73.9665,
+            latitude: 40.7812,
+            intensity: isWeekend ? 0.8 : 0.6,
+            radius: isWeekend ? 0.4 : 0.3
+          },
+          // Brooklyn Heights
+          {
+            name: "Brooklyn Heights",
+            longitude: -73.9938,
+            latitude: 40.6975,
+            intensity: isWeekend ? 0.7 : 0.6,
+            radius: 0.3
+          }
+        ],
+        "Los Angeles": [
+          // Downtown LA
+          {
+            name: "Downtown LA",
+            longitude: -118.2437,
+            latitude: 34.0522,
+            intensity: isWeekend ? 0.7 : 0.9,
+            radius: 0.4
+          },
+          // Hollywood
+          {
+            name: "Hollywood",
+            longitude: -118.3287,
+            latitude: 34.0928,
+            intensity: isWeekend ? 0.9 : 0.7,
+            radius: 0.35
+          },
+          // Santa Monica
+          {
+            name: "Santa Monica",
+            longitude: -118.4912,
+            latitude: 34.0195,
+            intensity: isWeekend ? 0.85 : 0.7,
+            radius: 0.3
+          },
+          // LAX
+          {
+            name: "LAX",
+            longitude: -118.4085,
+            latitude: 33.9416,
+            intensity: 0.8,
+            radius: 0.4
+          }
+        ],
+        "Chicago": [
+          // The Loop
+          {
+            name: "The Loop",
+            longitude: -87.6298,
+            latitude: 41.8781,
+            intensity: isWeekend ? 0.6 : 0.9,
+            radius: isWeekend ? 0.3 : 0.4
+          },
+          // Magnificent Mile
+          {
+            name: "Magnificent Mile",
+            longitude: -87.6251,
+            latitude: 41.8932,
+            intensity: isWeekend ? 0.8 : 0.7,
+            radius: 0.3
+          },
+          // Wrigleyville
+          {
+            name: "Wrigleyville",
+            longitude: -87.6553,
+            latitude: 41.9484,
+            intensity: isWeekend ? 0.9 : 0.6,
+            radius: isWeekend ? 0.4 : 0.2
+          }
+        ],
+        "Miami": [
+          // South Beach
+          {
+            name: "South Beach",
+            longitude: -80.1340,
+            latitude: 25.7825,
+            intensity: isWeekend ? 0.95 : 0.8,
+            radius: isWeekend ? 0.4 : 0.3
+          },
+          // Downtown Miami
+          {
+            name: "Downtown Miami",
+            longitude: -80.1918,
+            latitude: 25.7743,
+            intensity: isWeekend ? 0.7 : 0.9,
+            radius: isWeekend ? 0.3 : 0.4
+          },
+          // Miami Airport
+          {
+            name: "Miami Airport",
+            longitude: -80.2870,
+            latitude: 25.7953,
+            intensity: 0.8,
+            radius: 0.4
+          }
+        ]
+      };
+      
+      // Get hotspots for the city or use default
+      const hotspots = cityHotspots[cityName] || [
+        // Default hotspot for cities without specific data
         {
-          name: "Union Square",
-          longitude: -122.407,
-          latitude: 37.788,
-          intensity: isWeekend ? 0.85 : 0.75,
-          radius: 0.25
+          name: `${cityName} Downtown`,
+          longitude: cityLongitude,
+          latitude: cityLatitude,
+          intensity: isWeekend ? 0.8 : 0.9,
+          radius: 0.4
         },
+        // Airport hotspot
         {
-          name: "Chinatown",
-          longitude: -122.406,
-          latitude: 37.795,
-          intensity: isWeekend ? 0.8 : 0.7,
-          radius: 0.2
-        },
-        {
-          name: "Golden Gate Park",
-          longitude: -122.481,
-          latitude: 37.769,
-          intensity: isWeekend ? 0.75 : 0.4,
-          radius: isWeekend ? 0.5 : 0.3
-        },
-        {
-          name: "Haight-Ashbury",
-          longitude: -122.446,
-          latitude: 37.770,
-          intensity: isWeekend ? 0.7 : 0.5,
-          radius: 0.25
-        },
-        
-        // Oakland
-        {
-          name: "Downtown Oakland",
-          longitude: -122.271,
-          latitude: 37.804,
-          intensity: isWeekend ? 0.6 : 0.8,
-          radius: isWeekend ? 0.25 : 0.35
-        },
-        {
-          name: "Jack London Square",
-          longitude: -122.278,
-          latitude: 37.794,
-          intensity: isWeekend ? 0.75 : 0.6,
-          radius: 0.3
-        },
-        {
-          name: "Oakland Airport",
-          longitude: -122.212,
-          latitude: 37.721,
+          name: `${cityName} Airport`,
+          longitude: cityLongitude + 0.05,
+          latitude: cityLatitude - 0.05,
           intensity: 0.7,
-          radius: 0.4
-        },
-        {
-          name: "Lake Merritt",
-          longitude: -122.259,
-          latitude: 37.807,
-          intensity: isWeekend ? 0.7 : 0.5,
-          radius: 0.3
-        },
-        
-        // Berkeley
-        {
-          name: "UC Berkeley",
-          longitude: -122.259,
-          latitude: 37.872,
-          intensity: isWeekend ? 0.5 : 0.8,
-          radius: 0.35
-        },
-        {
-          name: "Downtown Berkeley",
-          longitude: -122.268,
-          latitude: 37.871,
-          intensity: isWeekend ? 0.65 : 0.75,
-          radius: 0.3
-        },
-        
-        // San Jose
-        {
-          name: "Downtown San Jose",
-          longitude: -121.889,
-          latitude: 37.335,
-          intensity: isWeekend ? 0.6 : 0.8,
-          radius: 0.4
-        },
-        {
-          name: "San Jose Airport",
-          longitude: -121.929,
-          latitude: 37.363,
-          intensity: 0.75,
-          radius: 0.4
-        },
-        {
-          name: "Santana Row",
-          longitude: -121.947,
-          latitude: 37.321,
-          intensity: isWeekend ? 0.85 : 0.7,
-          radius: 0.3
-        },
-        
-        // Palo Alto / Silicon Valley
-        {
-          name: "Stanford University",
-          longitude: -122.170,
-          latitude: 37.428,
-          intensity: isWeekend ? 0.5 : 0.7,
-          radius: 0.35
-        },
-        {
-          name: "Palo Alto Downtown",
-          longitude: -122.163,
-          latitude: 37.444,
-          intensity: isWeekend ? 0.6 : 0.8,
-          radius: 0.3
-        },
-        {
-          name: "Mountain View",
-          longitude: -122.083,
-          latitude: 37.386,
-          intensity: isWeekend ? 0.5 : 0.75,
-          radius: 0.35
-        },
-        {
-          name: "Cupertino",
-          longitude: -122.032,
-          latitude: 37.323,
-          intensity: isWeekend ? 0.5 : 0.7,
           radius: 0.3
         }
       ];
       
       // Add date-specific hotspots
       if (dateNum % 5 === 0) {
-        // Special event at Civic Center
-        bayAreaHotspots.push({
-          name: "Civic Center Event",
-          longitude: -122.419,
-          latitude: 37.779,
-          intensity: 0.95,
-          radius: 0.45
-        });
-      }
-      
-      if (selectedDate.getDay() === 5) {
-        // Friday night in the Castro
-        bayAreaHotspots.push({
-          name: "Castro Nightlife",
-          longitude: -122.435,
-          latitude: 37.762,
-          intensity: 0.9,
-          radius: 0.35
-        });
-        
-        // Friday night in Downtown Oakland
-        bayAreaHotspots.push({
-          name: "Oakland Nightlife",
-          longitude: -122.268,
-          latitude: 37.806,
-          intensity: 0.85,
-          radius: 0.3
-        });
-      }
-      
-      // Add special events based on date
-      if (selectedDate.getDate() % 3 === 0) {
-        // Concert at Chase Center
-        bayAreaHotspots.push({
-          name: "Chase Center Event",
-          longitude: -122.387,
-          latitude: 37.768,
+        // Special event
+        hotspots.push({
+          name: `${cityName} Event`,
+          longitude: cityLongitude + 0.01,
+          latitude: cityLatitude + 0.01,
           intensity: 0.95,
           radius: 0.4
-        });
-        
-        // Event at SAP Center (San Jose)
-        bayAreaHotspots.push({
-          name: "SAP Center Event",
-          longitude: -121.901,
-          latitude: 37.332,
-          intensity: 0.9,
-          radius: 0.4
-        });
-      }
-      
-      if (selectedDate.getDate() % 7 === 0) {
-        // Festival at Golden Gate Park
-        bayAreaHotspots.push({
-          name: "Golden Gate Park Festival",
-          longitude: -122.481,
-          latitude: 37.769,
-          intensity: 0.9,
-          radius: 0.5
-        });
-        
-        // Event at Oakland Coliseum
-        bayAreaHotspots.push({
-          name: "Oakland Coliseum Event",
-          longitude: -122.201,
-          latitude: 37.752,
-          intensity: 0.9,
-          radius: 0.45
         });
       }
       
@@ -470,7 +409,7 @@ const DriverHeatmap: React.FC<DriverHeatmapProps> = ({ selectedDate = new Date()
                             selectedTimeframeValue.includes('3') ? 0.8 : 0.6;
       
       // Generate points around hotspots
-      bayAreaHotspots.forEach(hotspot => {
+      hotspots.forEach(hotspot => {
         // Adjust intensity based on time of day
         const adjustedIntensity = hotspot.intensity * timeMultiplier;
         
@@ -517,39 +456,17 @@ const DriverHeatmap: React.FC<DriverHeatmapProps> = ({ selectedDate = new Date()
       });
       
       // Add some random points for areas with lower demand
-      const lowDemandPoints = 400; // Increased for larger area
+      const lowDemandPoints = 200; // Reduced for multiple cities
       let pointsAdded = 0;
       let attempts = 0;
-      const maxAttempts = 1000; // Prevent infinite loops
+      const maxAttempts = 500; // Prevent infinite loops
       
       while (pointsAdded < lowDemandPoints && attempts < maxAttempts) {
         attempts++;
         
-        // Randomly select which region to place the point
-        const region = Math.floor(Math.random() * 4);
-        let longitude, latitude;
-        
-        switch(region) {
-          case 0: // San Francisco - more precise boundaries
-            longitude = -122.47 + Math.random() * 0.08;
-            latitude = 37.75 + Math.random() * 0.06;
-            break;
-          case 1: // Oakland/Berkeley - more precise boundaries
-            longitude = -122.30 + Math.random() * 0.08;
-            latitude = 37.80 + Math.random() * 0.06;
-            break;
-          case 2: // Peninsula
-            longitude = -122.40 + Math.random() * 0.10;
-            latitude = 37.55 + Math.random() * 0.10;
-            break;
-          case 3: // South Bay
-            longitude = -122.00 + Math.random() * 0.15;
-            latitude = 37.35 + Math.random() * 0.10;
-            break;
-          default:
-            longitude = -122.25 + Math.random() * 0.30;
-            latitude = 37.60 + Math.random() * 0.30;
-        }
+        // Generate random point within city bounds
+        const longitude = cityLongitude + (Math.random() * 0.1 - 0.05);
+        const latitude = cityLatitude + (Math.random() * 0.1 - 0.05);
         
         // Only add the point if it's on land
         if (isPointOnLand(longitude, latitude)) {
@@ -560,68 +477,10 @@ const DriverHeatmap: React.FC<DriverHeatmapProps> = ({ selectedDate = new Date()
           pointsAdded++;
         }
       }
-      
-      // Add some points along major roads
-      const bayAreaMajorRoads = [
-        // San Francisco
-        { name: "Market Street", start: [-122.42, 37.774], end: [-122.396, 37.794] },
-        { name: "Van Ness Ave", start: [-122.422, 37.74], end: [-122.422, 37.79] },
-        { name: "Geary Blvd", start: [-122.45, 37.781], end: [-122.39, 37.781] },
-        { name: "Mission Street", start: [-122.42, 37.765], end: [-122.405, 37.79] },
-        { name: "3rd Street", start: [-122.4, 37.77], end: [-122.39, 37.78] },
-        { name: "Embarcadero", start: [-122.395, 37.77], end: [-122.395, 37.79] },
-        { name: "19th Avenue", start: [-122.476, 37.75], end: [-122.476, 37.78] },
-        { name: "Divisadero", start: [-122.439, 37.77], end: [-122.439, 37.8] },
-        { name: "California Street", start: [-122.45, 37.788], end: [-122.4, 37.788] },
-        
-        // Oakland/Berkeley
-        { name: "Broadway Oakland", start: [-122.271, 37.79], end: [-122.255, 37.83] },
-        { name: "Telegraph Ave", start: [-122.268, 37.81], end: [-122.258, 37.87] },
-        { name: "International Blvd", start: [-122.24, 37.75], end: [-122.16, 37.73] },
-        { name: "Grand Ave", start: [-122.265, 37.81], end: [-122.245, 37.815] },
-        { name: "Shattuck Ave", start: [-122.268, 37.85], end: [-122.266, 37.88] },
-        
-        // Peninsula/South Bay
-        { name: "El Camino Real", start: [-122.40, 37.65], end: [-121.92, 37.35] },
-        { name: "Stevens Creek Blvd", start: [-122.05, 37.32], end: [-121.94, 37.32] },
-        { name: "San Carlos St", start: [-121.91, 37.33], end: [-121.86, 37.34] },
-        { name: "University Ave PA", start: [-122.17, 37.44], end: [-122.14, 37.45] },
-        
-        // Major Highways
-        { name: "101 North", start: [-122.40, 37.6], end: [-122.39, 37.8] },
-        { name: "101 South", start: [-122.07, 37.35], end: [-121.85, 37.30] },
-        { name: "280", start: [-122.40, 37.6], end: [-121.95, 37.33] },
-        { name: "880", start: [-122.30, 37.65], end: [-122.17, 37.85] },
-        { name: "580", start: [-122.30, 37.8], end: [-122.15, 37.7] }
-      ];
-      
-      const roadPoints = 300; // Increased for larger area
-      let roadPointsAdded = 0;
-      attempts = 0;
-      
-      while (roadPointsAdded < roadPoints && attempts < maxAttempts) {
-        attempts++;
-        
-        const road = bayAreaMajorRoads[Math.floor(Math.random() * bayAreaMajorRoads.length)];
-        const t = Math.random();
-        const longitude = road.start[0] + (road.end[0] - road.start[0]) * t;
-        const latitude = road.start[1] + (road.end[1] - road.start[1]) * t;
-        
-        // Double-check that the point is on land
-        if (isPointOnLand(longitude, latitude)) {
-          mockData.push({
-            position: [longitude, latitude] as [number, number],
-            value: 0.3 + Math.random() * 0.3
-          });
-          roadPointsAdded++;
-        }
-      }
-      
-      return mockData;
     };
     
     setHeatmapData(generateMockData());
-  }, [timeframe, selectedDate]);
+  }, [timeframe, selectedDate, selectedCity, viewState.zoom, showAllCities]);
   
   // Query for heatmap data - you can use mock data instead if your GraphQL server isn't set up
   const { loading, error, data } = useQuery(GET_DRIVER_HEATMAP_DATA, {
@@ -693,9 +552,16 @@ const DriverHeatmap: React.FC<DriverHeatmapProps> = ({ selectedDate = new Date()
     })
   ];
   
-  // Handle view state changes
+  // Update view state when it changes
   const handleViewStateChange = (info: ViewStateChangeInfo) => {
     setViewState(info.viewState);
+    
+    // Auto-detect if we're zoomed out enough to show all cities
+    if (info.viewState.zoom < 6 && !showAllCities) {
+      setShowAllCities(true);
+    } else if (info.viewState.zoom >= 6 && showAllCities) {
+      setShowAllCities(false);
+    }
   };
   
   // Create DeckGL props to avoid TypeScript errors
@@ -711,6 +577,43 @@ const DriverHeatmap: React.FC<DriverHeatmapProps> = ({ selectedDate = new Date()
     onViewStateChange: handleViewStateChange
   };
 
+  // Add city selector
+  const handleCityChange = (params: { value: Value }) => {
+    if (params.value && params.value.length > 0) {
+      const newCity = params.value[0].label as string;
+      
+      if (newCity === ALL_CITIES_OPTION.name) {
+        // View all cities
+        setSelectedCity(newCity);
+        setShowAllCities(true);
+        setViewState({
+          ...viewState,
+          longitude: ALL_CITIES_OPTION.longitude,
+          latitude: ALL_CITIES_OPTION.latitude,
+          zoom: ALL_CITIES_OPTION.zoom
+        });
+      } else {
+        // View specific city
+        const cityData = US_CITIES.find(city => city.name === newCity);
+        
+        if (cityData) {
+          setSelectedCity(newCity);
+          setShowAllCities(false);
+          
+          // Animate to the new city with a smooth transition
+          setViewState({
+            ...viewState,
+            longitude: cityData.longitude,
+            latitude: cityData.latitude,
+            zoom: cityData.zoom,
+            transitionDuration: 1000,
+            transitionInterpolator: new FlyToInterpolator()
+          });
+        }
+      }
+    }
+  };
+
   return (
     <div className={css({
       fontFamily: 'var(--font-family-base)',
@@ -720,7 +623,7 @@ const DriverHeatmap: React.FC<DriverHeatmapProps> = ({ selectedDate = new Date()
     })}>
       <CardWrapper 
         title={getDateSpecificTitle()} 
-        subtitle="Real-time demand across the Bay Area"
+        subtitle={showAllCities ? "Real-time demand across the United States" : `Real-time demand in ${selectedCity}`}
       >
         <div className={css({
           display: 'flex',
@@ -733,49 +636,64 @@ const DriverHeatmap: React.FC<DriverHeatmapProps> = ({ selectedDate = new Date()
           }
         })}>
           <h3 className={css({
-            margin: 0,
-            fontSize: 'var(--font-size-heading-small)',
-            fontWeight: 700,
-            color: 'var(--dark-gray)'
+            margin: '0 0 16px 0',
+            fontSize: '18px',
+            fontWeight: 'normal',
+            '@media screen and (min-width: 768px)': {
+              margin: '0'
+            }
           })}>
-            San Francisco
+            {showAllCities ? "Viewing: All Cities" : `Viewing: ${selectedCity}`}
           </h3>
           
-          <Select
-            options={[
-              { id: '1', label: 'Next Hour' },
-              { id: '2', label: 'Next 3 Hours' },
-              { id: '3', label: 'Next 6 Hours' }
-            ]}
-            value={timeframe}
-            onChange={params => setTimeframe(params.value)}
-            overrides={{
-              Root: {
-                style: {
-                  borderRadius: '8px',
-                  border: '1px solid var(--medium-gray)',
+          <div className={css({
+            display: 'flex',
+            alignItems: 'center',
+            gap: '16px'
+          })}>
+            <Select
+              options={[
+                { id: ALL_CITIES_OPTION.name, label: ALL_CITIES_OPTION.name },
+                ...US_CITIES.map(city => ({ id: city.name, label: city.name }))
+              ]}
+              value={[{ id: showAllCities ? ALL_CITIES_OPTION.name : selectedCity, label: showAllCities ? ALL_CITIES_OPTION.name : selectedCity }]}
+              placeholder="Select City"
+              onChange={handleCityChange}
+              overrides={{
+                ControlContainer: {
+                  style: {
+                    width: '200px'
+                  }
                 }
-              },
-              ControlContainer: {
-                style: {
-                  backgroundColor: 'var(--uber-white)',
-                  borderRadius: '8px',
+              }}
+            />
+            
+            <Select
+              options={[
+                { id: '1', label: 'Next Hour' },
+                { id: '2', label: 'Next 3 Hours' },
+                { id: '3', label: 'Next 6 Hours' }
+              ]}
+              value={timeframe}
+              placeholder="Select Timeframe"
+              onChange={params => setTimeframe(params.value)}
+              overrides={{
+                ControlContainer: {
+                  style: {
+                    width: '150px'
+                  }
                 }
-              },
-              ValueContainer: {
-                style: {
-                  fontSize: 'var(--font-size-body)',
-                  fontFamily: 'var(--font-family-base)',
-                }
-              },
-              Dropdown: {
-                style: {
-                  borderRadius: '8px',
-                  boxShadow: '0 2px 10px var(--shadow-color)',
-                }
-              }
-            }}
-          />
+              }}
+            />
+            
+            <Button
+              onClick={() => setIsInfoSheetOpen(true)}
+              variant="secondary"
+              size="small"
+            >
+              Info
+            </Button>
+          </div>
         </div>
         
         {loading ? (
