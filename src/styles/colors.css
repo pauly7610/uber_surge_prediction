@@ -1,0 +1,32 @@
+/* colors.css */
+:root {
+  /* Primary Colors */
+  --uber-black: #000000;
+  --uber-white: #FFFFFF;
+  --uber-blue: #276EF1;
+  
+  /* Secondary Colors */
+  --dark-gray: #333333;
+  --medium-gray: #767676;
+  --light-gray: #EEEEEE;
+  
+  /* Surge/Demand Colors */
+  --high-demand: #E60000;
+  --medium-demand: #FF9800;
+  --low-demand: #FFC107;
+  --baseline: #06C167;
+  
+  /* Map Colors */
+  --map-dark-blue: #1A1A2E;
+  --map-medium-blue: #16213E;
+  --map-water: #0A2133;
+  --map-land: #1A2632;
+  
+  /* UI Element Colors */
+  --shadow-color: rgba(0, 0, 0, 0.1);
+  --overlay-bg: rgba(0, 0, 0, 0.7);
+  --success: #06C167;
+  --warning: #FFC107;
+  --error: #E60000;
+  --info: #276EF1;
+} 

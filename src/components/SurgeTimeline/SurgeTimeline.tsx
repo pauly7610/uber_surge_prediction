@@ -20,32 +20,59 @@ interface SurgePrediction {
   multiplier: number;
 }
 
-// Define the TIMELINE_CARD_STYLES constant
-const TIMELINE_CARD_STYLES = {
-  Root: {
-    style: {
-      width: '100%',
-      maxWidth: '100%',
-      margin: '0 auto',
-      backgroundColor: '#1E1E1E',
-      color: '#FFFFFF',
-      borderRadius: '8px',
-      boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)'
-    },
-  },
-  Contents: {
-    style: {
-      padding: '24px',
-    }
-  }
+// Define styles for the timeline card using CSS variables
+const timelineCardStyles = {
+  backgroundColor: 'var(--uber-white)',
+  color: 'var(--dark-gray)',
+  width: '100%',
+  maxWidth: '100%',
+  margin: '0 auto',
+  padding: '24px',
+  borderRadius: '8px',
+};
+
+// Define styles for the chart container
+const chartContainerStyles = {
+  position: 'relative' as const,
+  minHeight: '300px',
+  marginTop: '20px',
+  backgroundColor: 'rgba(39, 110, 241, 0.05)',
+  borderRadius: '8px',
+  padding: '16px',
+  border: '1px solid rgba(39, 110, 241, 0.1)',
+};
+
+// Define styles for the date picker container
+const datePickerContainerStyles = {
+  width: '100%',
+  maxWidth: '100%',
+  overflowX: 'auto' as const,
+  backgroundColor: 'var(--uber-white)',
+  padding: '16px',
+  borderRadius: '8px',
+  border: '1px solid var(--light-gray)',
+  marginBottom: '20px',
+};
+
+// Define styles for the price lock notification
+const priceLockNotificationStyles = {
+  backgroundColor: 'rgba(39, 110, 241, 0.1)',
+  color: 'var(--uber-blue)',
+  padding: '12px 16px',
+  borderRadius: '8px',
+  marginBottom: '16px',
+  display: 'flex' as const,
+  alignItems: 'center' as const,
+  fontSize: 'var(--font-size-body)',
 };
 
 interface SurgeTimelineProps {
   routeId: string;
   initialData: SurgePrediction[];
+  hideDatePicker?: boolean;
 }
 
-const SurgeTimeline: React.FC<SurgeTimelineProps> = ({ routeId, initialData }) => {
+const SurgeTimeline: React.FC<SurgeTimelineProps> = ({ routeId, initialData, hideDatePicker = false }) => {
   const [css] = useStyletron();
   
   // Get current surge data
@@ -134,32 +161,37 @@ const SurgeTimeline: React.FC<SurgeTimelineProps> = ({ routeId, initialData }) =
   }));
 
   return (
-    <CardWrapper overrides={TIMELINE_CARD_STYLES}>
-      <HeadingMedium $style={{ 
-        color: '#FFFFFF', 
-        marginTop: 0, 
-        marginBottom: '24px',
-        borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
-        paddingBottom: '12px'
-      }}>
-        Surge Forecast
-      </HeadingMedium>
-      
+    <CardWrapper 
+      title="Surge Forecast"
+      subtitle="View predicted surge pricing over time"
+    >
+      {/* Price Lock Notification */}
+      <div className={css(priceLockNotificationStyles)}>
+        <div className={css({
+          marginRight: '12px',
+          width: '24px',
+          height: '24px',
+          borderRadius: '50%',
+          backgroundColor: 'var(--uber-blue)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          color: 'var(--uber-white)',
+          fontWeight: 'bold',
+        })}>
+          i
+        </div>
+        Price Lock Available: Lock in standard rates for your evening commute before prices increase.
+      </div>
+
       {error && (
         <Notification kind="negative" closeable>
           Error loading surge data: {error.message}
         </Notification>
       )}
       
-      <div className={css({ marginBottom: '20px' })}>
-        <div className={css({
-          width: '100%',
-          maxWidth: '100%',
-          overflowX: 'auto',
-          backgroundColor: '#FFFFFF',
-          padding: '16px',
-          borderRadius: '8px'
-        })}>
+      {!hideDatePicker && (
+        <div className={css(datePickerContainerStyles)}>
           <DateRangePicker
             ranges={dateRange}
             onChange={handleSelect}
@@ -168,18 +200,54 @@ const SurgeTimeline: React.FC<SurgeTimelineProps> = ({ routeId, initialData }) =
             direction="horizontal"
             showSelectionPreview={true}
             moveRangeOnFirstSelection={false}
+            staticRanges={[
+              {
+                label: 'This Month',
+                range: () => ({
+                  startDate: new Date(new Date().setDate(1)),
+                  endDate: new Date(),
+                  key: 'selection',
+                }),
+                isSelected() { return false; }
+              },
+              {
+                label: 'Last Month',
+                range: () => {
+                  const today = new Date();
+                  const lastMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+                  const lastDayOfLastMonth = new Date(today.getFullYear(), today.getMonth(), 0);
+                  return {
+                    startDate: lastMonth,
+                    endDate: lastDayOfLastMonth,
+                    key: 'selection',
+                  };
+                },
+                isSelected() { return false; }
+              },
+              {
+                label: '1 day up to today',
+                range: () => ({
+                  startDate: new Date(new Date().setDate(new Date().getDate() - 1)),
+                  endDate: new Date(),
+                  key: 'selection',
+                }),
+                isSelected() { return false; }
+              },
+              {
+                label: '1 day starting today',
+                range: () => ({
+                  startDate: new Date(),
+                  endDate: new Date(new Date().setDate(new Date().getDate() + 1)),
+                  key: 'selection',
+                }),
+                isSelected() { return false; }
+              }
+            ]}
           />
         </div>
-      </div>
+      )}
       
-      <div className={css({ 
-        position: 'relative', 
-        minHeight: '300px', 
-        marginTop: '20px',
-        backgroundColor: 'rgba(255, 255, 255, 0.05)',
-        borderRadius: '8px',
-        padding: '16px'
-      })}>
+      <div className={css(chartContainerStyles)}>
         {isLoading ? (
           <div className={css({
             display: 'flex',
@@ -198,22 +266,22 @@ const SurgeTimeline: React.FC<SurgeTimelineProps> = ({ routeId, initialData }) =
             >
               <XAxis 
                 dataKey="formattedTime" 
-                tick={{ fill: '#FFFFFF' }}
-                axisLine={{ stroke: 'rgba(255, 255, 255, 0.3)' }}
-                tickLine={{ stroke: 'rgba(255, 255, 255, 0.3)' }}
+                tick={{ fill: 'var(--dark-gray)' }}
+                axisLine={{ stroke: 'var(--light-gray)' }}
+                tickLine={{ stroke: 'var(--light-gray)' }}
               />
               <YAxis 
                 domain={[1, 'auto']} 
-                tick={{ fill: '#FFFFFF' }}
-                axisLine={{ stroke: 'rgba(255, 255, 255, 0.3)' }}
-                tickLine={{ stroke: 'rgba(255, 255, 255, 0.3)' }}
+                tick={{ fill: 'var(--dark-gray)' }}
+                axisLine={{ stroke: 'var(--light-gray)' }}
+                tickLine={{ stroke: 'var(--light-gray)' }}
               />
               <Tooltip content={<CustomTooltip />} />
               <Area
                 type="monotone"
                 dataKey="multiplier"
-                stroke="#4285F4"
-                fill="#4285F4"
+                stroke="var(--uber-blue)"
+                fill="var(--uber-blue)"
                 fillOpacity={0.2}
                 strokeWidth={2}
               />
@@ -225,7 +293,7 @@ const SurgeTimeline: React.FC<SurgeTimelineProps> = ({ routeId, initialData }) =
             justifyContent: 'center',
             alignItems: 'center',
             height: '300px',
-            color: 'rgba(255, 255, 255, 0.7)'
+            color: 'var(--medium-gray)'
           })}>
             No surge data available for the selected time period
           </div>

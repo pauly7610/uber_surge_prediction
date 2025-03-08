@@ -1,0 +1,52 @@
+/* typography.css */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap');
+
+:root {
+  --font-family-base: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+  --font-size-heading-large: 24px;
+  --font-size-heading-medium: 18px;
+  --font-size-heading-small: 16px;
+  --font-size-body: 14px;
+  --font-size-caption: 12px;
+  --line-height-heading-large: 32px;
+  --line-height-heading-medium: 24px;
+  --line-height-heading-small: 22px;
+  --line-height-body: 20px;
+  --line-height-caption: 16px;
+}
+
+body {
+  font-family: var(--font-family-base);
+  font-size: var(--font-size-body);
+  line-height: var(--line-height-body);
+  color: var(--dark-gray);
+}
+
+h1 {
+  font-size: var(--font-size-heading-large);
+  line-height: var(--line-height-heading-large);
+  font-weight: 700;
+  margin-top: 0;
+  margin-bottom: 16px;
+}
+
+h2 {
+  font-size: var(--font-size-heading-medium);
+  line-height: var(--line-height-heading-medium);
+  font-weight: 700;
+  margin-top: 0;
+  margin-bottom: 12px;
+}
+
+h3 {
+  font-size: var(--font-size-heading-small);
+  line-height: var(--line-height-heading-small);
+  font-weight: 700;
+  margin-top: 0;
+  margin-bottom: 8px;
+}
+
+.caption {
+  font-size: var(--font-size-caption);
+  line-height: var(--line-height-caption);
+} 

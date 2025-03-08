@@ -13,6 +13,11 @@ import * as serviceWorker from './serviceWorker';
 import { validateEnvVariables } from './utils/envValidation';
 import config from './utils/config';
 
+// Import Uber design system styles
+import './styles/colors.css';
+import './styles/typography.css';
+import './styles/animations.css';
+
 // Validate environment variables
 if (!validateEnvVariables()) {
   console.warn('Application may not function correctly due to missing environment variables');

@@ -1,598 +1,1060 @@
-import React, { useState, useEffect } from 'react';
-import { Card } from 'baseui/card';
+import React, { useState, useEffect, useRef } from 'react';
 import { HeadingMedium, ParagraphSmall } from 'baseui/typography';
 import { useStyletron } from 'baseui';
 import { Select, Value } from 'baseui/select';
 import { useQuery } from '@apollo/client';
 import { GET_DRIVER_HEATMAP_DATA } from '../../graphql/queries';
 import { StyledSpinnerNext as Spinner } from 'baseui/spinner';
+import CardWrapper from '../common/CardWrapper';
+import Button from '../common/Button';
+import BottomSheet from '../common/BottomSheet';
+import Legend from '../common/Legend';
+import DeckGL from '@deck.gl/react';
+import { HexagonLayer } from '@deck.gl/aggregation-layers';
+import { ScatterplotLayer } from '@deck.gl/layers';
+// Fix the import for react-map-gl by using the correct export path
+import { Map } from 'react-map-gl/maplibre';
+import maplibregl from 'maplibre-gl';
+import 'maplibre-gl/dist/maplibre-gl.css';
+import { format } from 'date-fns';
 
-interface HeatmapCell {
-  x: number;
-  y: number;
+// Bay Area coordinates (centered between SF and Oakland)
+const INITIAL_VIEW_STATE = {
+  longitude: -122.2712,
+  latitude: 37.7750,
+  zoom: 10,
+  pitch: 45,
+  bearing: 0
+};
+
+interface HeatmapPoint {
+  position: [number, number];
   value: number;
 }
 
-interface HeatmapProps {
-  data: HeatmapCell[];
-  width: number;
-  height: number;
+interface DriverHeatmapProps {
+  selectedDate?: Date;
 }
 
-// SVG map of San Francisco for background - more realistic version
-const SanFranciscoMap = () => (
-  <svg width="100%" height="100%" xmlns="http://www.w3.org/2000/svg" style={{ position: 'absolute', top: 0, left: 0, zIndex: 0 }}>
-    <defs>
-      <linearGradient id="waterGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" stopColor="#0A1A2E" />
-        <stop offset="100%" stopColor="#152E4D" />
-      </linearGradient>
-      <linearGradient id="landGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" stopColor="#1A2632" />
-        <stop offset="100%" stopColor="#1E2D3A" />
-      </linearGradient>
-      <pattern id="gridPattern" width="30" height="30" patternUnits="userSpaceOnUse">
-        <path d="M 30 0 L 0 0 0 30" fill="none" stroke="rgba(255,255,255,0.03)" strokeWidth="0.5" />
-      </pattern>
-      <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
-        <feGaussianBlur stdDeviation="2" result="blur" />
-        <feComposite in="SourceGraphic" in2="blur" operator="over" />
-      </filter>
-    </defs>
-    
-    {/* Background */}
-    <rect width="100%" height="100%" fill="#0A1622" />
-    <rect width="100%" height="100%" fill="url(#gridPattern)" />
-    
-    {/* Pacific Ocean */}
-    <rect x="0" y="0" width="150" height="400" fill="url(#waterGradient)" />
-    
-    {/* San Francisco Bay */}
-    <path d="M400,50 Q450,75 500,60 L600,60 L600,400 L400,400 Q380,350 400,300 Q420,250 400,200 Q380,150 400,100 Z" 
-          fill="url(#waterGradient)" />
-    
-    {/* Main Peninsula Shape */}
-    <path d="M150,0 L400,0 Q420,50 400,100 Q380,150 400,200 Q420,250 400,300 Q380,350 400,400 L150,400 Q170,350 150,300 Q130,250 150,200 Q170,150 150,100 Q130,50 150,0 Z" 
-          fill="url(#landGradient)" />
-    
-    {/* Street Grid - Main Streets */}
-    <g stroke="rgba(255,255,255,0.1)" strokeWidth="0.7">
-      {/* Horizontal Streets */}
-      <line x1="150" y1="50" x2="400" y2="50" />
-      <line x1="150" y1="100" x2="400" y2="100" />
-      <line x1="150" y1="150" x2="400" y2="150" />
-      <line x1="150" y1="200" x2="400" y2="200" />
-      <line x1="150" y1="250" x2="400" y2="250" />
-      <line x1="150" y1="300" x2="400" y2="300" />
-      <line x1="150" y1="350" x2="400" y2="350" />
-      
-      {/* Vertical Streets */}
-      <line x1="180" y1="0" x2="180" y2="400" />
-      <line x1="210" y1="0" x2="210" y2="400" />
-      <line x1="240" y1="0" x2="240" y2="400" />
-      <line x1="270" y1="0" x2="270" y2="400" />
-      <line x1="300" y1="0" x2="300" y2="400" />
-      <line x1="330" y1="0" x2="330" y2="400" />
-      <line x1="360" y1="0" x2="360" y2="400" />
-    </g>
-    
-    {/* Major Arterial Roads */}
-    <g stroke="rgba(255,255,255,0.2)" strokeWidth="1.2">
-      {/* Market Street */}
-      <path d="M200,100 L400,200" />
-      
-      {/* Van Ness */}
-      <path d="M270,0 L270,400" />
-      
-      {/* Geary */}
-      <path d="M150,120 L400,120" />
-      
-      {/* Mission Street */}
-      <path d="M220,150 L350,250" />
-      
-      {/* 3rd Street */}
-      <path d="M350,150 L350,400" />
-      
-      {/* Embarcadero */}
-      <path d="M400,100 Q380,150 400,200 Q420,250 400,300" />
-    </g>
-    
-    {/* Golden Gate Bridge */}
-    <path d="M150,80 L50,60" stroke="#E74C3C" strokeWidth="2" strokeDasharray="2,2" />
-    
-    {/* Bay Bridge */}
-    <path d="M400,150 L600,130" stroke="#F1C40F" strokeWidth="2" strokeDasharray="2,2" />
-    
-    {/* Neighborhoods with subtle boundaries */}
-    <g fill="rgba(255,255,255,0.03)" stroke="rgba(255,255,255,0.05)" strokeWidth="0.5">
-      {/* Financial District / Downtown */}
-      <path d="M350,120 Q370,140 380,170 Q360,190 330,180 Q320,150 350,120" />
-      
-      {/* SoMa */}
-      <path d="M330,180 Q360,190 380,220 Q350,250 320,230 Q310,200 330,180" />
-      
-      {/* Mission */}
-      <path d="M280,200 Q310,190 320,230 Q300,260 270,250 Q260,220 280,200" />
-      
-      {/* Marina */}
-      <path d="M200,80 Q230,70 260,90 Q240,120 210,110 Q190,100 200,80" />
-      
-      {/* North Beach */}
-      <path d="M260,90 Q290,80 310,100 Q290,130 260,120 Q240,110 260,90" />
-      
-      {/* Haight-Ashbury */}
-      <path d="M220,170 Q250,160 270,180 Q250,210 220,200 Q200,190 220,170" />
-    </g>
-    
-    {/* Parks */}
-    <g fill="rgba(39, 174, 96, 0.2)">
-      {/* Golden Gate Park */}
-      <path d="M150,180 L240,180 L240,210 L150,210 Z" />
-      
-      {/* Dolores Park */}
-      <rect x="270" y="220" width="20" height="15" />
-      
-      {/* Alamo Square */}
-      <rect x="240" y="150" width="15" height="15" />
-      
-      {/* Presidio */}
-      <path d="M150,50 L200,50 L200,100 L150,100 Z" />
-    </g>
-    
-    {/* Landmarks with subtle markers */}
-    <g>
-      {/* Ferry Building */}
-      <circle cx="400" cy="150" r="3" fill="#F1C40F" filter="url(#glow)" />
-      <text x="385" y="140" textAnchor="end" fill="rgba(255,255,255,0.4)" fontSize="6" fontFamily="Arial">Ferry Building</text>
-      
-      {/* Coit Tower */}
-      <circle cx="310" cy="110" r="2" fill="#E67E22" filter="url(#glow)" />
-      <text x="310" y="100" textAnchor="middle" fill="rgba(255,255,255,0.4)" fontSize="6" fontFamily="Arial">Coit Tower</text>
-      
-      {/* Salesforce Tower */}
-      <circle cx="360" cy="160" r="2.5" fill="#3498DB" filter="url(#glow)" />
-      <text x="360" y="150" textAnchor="middle" fill="rgba(255,255,255,0.4)" fontSize="6" fontFamily="Arial">Salesforce</text>
-      
-      {/* AT&T Park */}
-      <circle cx="380" cy="220" r="2" fill="#E74C3C" filter="url(#glow)" />
-      <text x="380" y="210" textAnchor="middle" fill="rgba(255,255,255,0.4)" fontSize="6" fontFamily="Arial">Oracle Park</text>
-      
-      {/* Twin Peaks */}
-      <circle cx="230" cy="220" r="2.5" fill="#9B59B6" filter="url(#glow)" />
-      <text x="230" y="210" textAnchor="middle" fill="rgba(255,255,255,0.4)" fontSize="6" fontFamily="Arial">Twin Peaks</text>
-    </g>
-    
-    {/* Compass */}
-    <g>
-      <circle cx="40" cy="40" r="15" fill="rgba(0,0,0,0.3)" stroke="rgba(255,255,255,0.2)" strokeWidth="1" />
-      <text x="40" y="43" textAnchor="middle" fill="rgba(255,255,255,0.6)" fontSize="10" fontFamily="Arial">N</text>
-      <line x1="40" y1="25" x2="40" y2="35" stroke="rgba(255,255,255,0.6)" strokeWidth="1" />
-    </g>
-    
-    {/* Water texture */}
-    <g opacity="0.1">
-      <path d="M0,80 Q30,75 60,85 Q90,95 120,85 Q150,75 180,85" stroke="rgba(255,255,255,0.2)" strokeWidth="0.5" fill="none" />
-      <path d="M0,100 Q30,95 60,105 Q90,115 120,105 Q150,95 180,105" stroke="rgba(255,255,255,0.2)" strokeWidth="0.5" fill="none" />
-      <path d="M0,120 Q30,115 60,125 Q90,135 120,125 Q150,115 180,125" stroke="rgba(255,255,255,0.2)" strokeWidth="0.5" fill="none" />
-      
-      <path d="M420,80 Q450,75 480,85 Q510,95 540,85 Q570,75 600,85" stroke="rgba(255,255,255,0.2)" strokeWidth="0.5" fill="none" />
-      <path d="M420,100 Q450,95 480,105 Q510,115 540,105 Q570,95 600,105" stroke="rgba(255,255,255,0.2)" strokeWidth="0.5" fill="none" />
-      <path d="M420,120 Q450,115 480,125 Q510,135 540,125 Q570,115 600,125" stroke="rgba(255,255,255,0.2)" strokeWidth="0.5" fill="none" />
-    </g>
-  </svg>
-);
+// Define the ViewState type
+interface ViewState {
+  longitude: number;
+  latitude: number;
+  zoom: number;
+  pitch: number;
+  bearing: number;
+  [key: string]: any;
+}
 
-const Heatmap: React.FC<HeatmapProps> = ({ data, width, height }) => {
-  const [css] = useStyletron();
-  
-  const maxValue = Math.max(...data.map(cell => cell.value));
-  
-  // Enhanced color function with gradient from blue (low) to red (high)
-  const getColor = (value: number) => {
-    const intensity = value / maxValue;
-    
-    if (intensity < 0.3) {
-      // Blue to teal gradient for low values
-      return `rgba(0, ${Math.floor(150 + intensity * 105)}, ${Math.floor(255 - intensity * 100)}, ${0.5 + intensity * 0.5})`;
-    } else if (intensity < 0.7) {
-      // Teal to yellow gradient for medium values
-      const normalizedIntensity = (intensity - 0.3) / 0.4;
-      return `rgba(${Math.floor(normalizedIntensity * 255)}, ${Math.floor(200 - normalizedIntensity * 50)}, ${Math.floor(200 - normalizedIntensity * 200)}, ${0.65 + normalizedIntensity * 0.15})`;
-    } else {
-      // Yellow to red gradient for high values
-      const normalizedIntensity = (intensity - 0.7) / 0.3;
-      return `rgba(255, ${Math.floor(200 - normalizedIntensity * 200)}, 0, ${0.8 + normalizedIntensity * 0.2})`;
-    }
-  };
-  
-  // Calculate size based on value
-  const getSize = (value: number) => {
-    const intensity = value / maxValue;
-    return 20 + intensity * 30; // Size between 20px and 50px
-  };
-  
-  // Add pulse animation for high-value points
-  const getPulseAnimation = (value: number) => {
-    const intensity = value / maxValue;
-    if (intensity > 0.7) {
-      return {
-        animation: 'pulse 1.5s infinite',
-        '@keyframes pulse': {
-          '0%': {
-            transform: 'translate(-50%, -50%) scale(1)',
-            boxShadow: '0 0 0 0 rgba(255, 0, 0, 0.7)'
-          },
-          '70%': {
-            transform: 'translate(-50%, -50%) scale(1.1)',
-            boxShadow: '0 0 0 10px rgba(255, 0, 0, 0)'
-          },
-          '100%': {
-            transform: 'translate(-50%, -50%) scale(1)',
-            boxShadow: '0 0 0 0 rgba(255, 0, 0, 0)'
-          }
-        }
-      };
-    }
-    return {
-      transform: 'translate(-50%, -50%)'
-    };
-  };
-  
-  return (
-    <div 
-      className={css({
-        position: 'relative',
-        width: `${width}px`,
-        height: `${height}px`,
-        backgroundColor: '#1A2632',
-        backgroundSize: 'cover',
-        border: '1px solid rgba(255,255,255,0.1)',
-        borderRadius: '8px',
-        boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
-        overflow: 'hidden'
-      })}
-    >
-      <SanFranciscoMap />
-      
-      {data.map((cell, index) => (
-        <div
-          key={index}
-          className={css({
-            position: 'absolute',
-            left: `${cell.x}px`,
-            top: `${cell.y}px`,
-            width: `${getSize(cell.value)}px`,
-            height: `${getSize(cell.value)}px`,
-            borderRadius: '50%',
-            backgroundColor: getColor(cell.value),
-            opacity: 0.8,
-            boxShadow: `0 0 ${10 + (cell.value / maxValue) * 20}px ${getColor(cell.value)}`,
-            zIndex: Math.floor((cell.value / maxValue) * 10) + 1,
-            ...getPulseAnimation(cell.value)
-          })}
-        />
-      ))}
-      
-      {/* Add some static landmarks */}
-      <div className={css({
-        position: 'absolute',
-        left: '50%',
-        top: '50%',
-        transform: 'translate(-50%, -50%)',
-        width: '8px',
-        height: '8px',
-        borderRadius: '50%',
-        backgroundColor: 'rgba(255,255,255,0.8)',
-        boxShadow: '0 0 5px rgba(255,255,255,0.8)',
-        zIndex: 2
-      })} />
-      
-      <div className={css({
-        position: 'absolute',
-        left: '50%',
-        top: '50%',
-        transform: 'translate(-50%, -50%)',
-        width: '40px',
-        height: '40px',
-        borderRadius: '50%',
-        border: '1px solid rgba(255,255,255,0.3)',
-        zIndex: 1
-      })} />
-    </div>
-  );
-};
+// Define the ViewStateChangeInfo type
+interface ViewStateChangeInfo {
+  viewState: ViewState;
+  interactionState?: any;
+  oldViewState?: ViewState;
+}
 
-const DriverHeatmap: React.FC = () => {
+const DriverHeatmap: React.FC<DriverHeatmapProps> = ({ selectedDate = new Date() }) => {
   const [css] = useStyletron();
   const [timeframe, setTimeframe] = useState<Value>([{ id: '1', label: 'Next Hour' }]);
-  const [mockData, setMockData] = useState<HeatmapCell[]>([]);
+  const [heatmapData, setHeatmapData] = useState<HeatmapPoint[]>([]);
+  const [isInfoSheetOpen, setIsInfoSheetOpen] = useState(false);
+  const [viewState, setViewState] = useState<ViewState>(INITIAL_VIEW_STATE);
+  const deckRef = useRef(null);
+  
+  // Width and height for the heatmap
+  const width = 600;
+  const height = 400;
+  
+  // Function to check if a point is on land (not in water)
+  const isPointOnLand = (longitude: number, latitude: number): boolean => {
+    // Define specific land areas as polygons (simplified rectangles)
+    const landAreas = [
+      // San Francisco
+      {
+        name: "San Francisco",
+        minLong: -122.52,
+        maxLong: -122.35,
+        minLat: 37.70,
+        maxLat: 37.83
+      },
+      // Oakland/Berkeley
+      {
+        name: "Oakland/Berkeley",
+        minLong: -122.35,
+        maxLong: -122.20,
+        minLat: 37.72,
+        maxLat: 37.89
+      },
+      // Alameda Island
+      {
+        name: "Alameda",
+        minLong: -122.31,
+        maxLong: -122.24,
+        minLat: 37.73,
+        maxLat: 37.79
+      },
+      // South SF / Daly City
+      {
+        name: "South SF",
+        minLong: -122.47,
+        maxLong: -122.38,
+        minLat: 37.63,
+        maxLat: 37.70
+      },
+      // San Mateo
+      {
+        name: "San Mateo",
+        minLong: -122.35,
+        maxLong: -122.27,
+        minLat: 37.53,
+        maxLat: 37.58
+      },
+      // Redwood City
+      {
+        name: "Redwood City",
+        minLong: -122.25,
+        maxLong: -122.18,
+        minLat: 37.47,
+        maxLat: 37.53
+      },
+      // Palo Alto
+      {
+        name: "Palo Alto",
+        minLong: -122.20,
+        maxLong: -122.10,
+        minLat: 37.38,
+        maxLat: 37.46
+      },
+      // Mountain View
+      {
+        name: "Mountain View",
+        minLong: -122.12,
+        maxLong: -122.05,
+        minLat: 37.36,
+        maxLat: 37.42
+      },
+      // Sunnyvale
+      {
+        name: "Sunnyvale",
+        minLong: -122.07,
+        maxLong: -121.98,
+        minLat: 37.35,
+        maxLat: 37.41
+      },
+      // Santa Clara
+      {
+        name: "Santa Clara",
+        minLong: -122.00,
+        maxLong: -121.92,
+        minLat: 37.33,
+        maxLat: 37.39
+      },
+      // San Jose
+      {
+        name: "San Jose",
+        minLong: -121.95,
+        maxLong: -121.85,
+        minLat: 37.30,
+        maxLat: 37.38
+      },
+      // Fremont
+      {
+        name: "Fremont",
+        minLong: -122.05,
+        maxLong: -121.95,
+        minLat: 37.50,
+        maxLat: 37.58
+      },
+      // Hayward
+      {
+        name: "Hayward",
+        minLong: -122.12,
+        maxLong: -122.02,
+        minLat: 37.62,
+        maxLat: 37.68
+      }
+    ];
+    
+    // Check if the point is within any of the defined land areas
+    for (const area of landAreas) {
+      if (
+        longitude >= area.minLong && 
+        longitude <= area.maxLong && 
+        latitude >= area.minLat && 
+        latitude <= area.maxLat
+      ) {
+        return true;
+      }
+    }
+    
+    // If not in any defined land area, assume it's water
+    return false;
+  };
   
   // Generate more realistic mock data
   useEffect(() => {
     const generateMockData = () => {
       // Create a realistic pattern for San Francisco
-      const mockData: HeatmapCell[] = [];
+      const mockData: HeatmapPoint[] = [];
       
-      // Base number of points
-      const numPoints = 200;
+      // Use the date to seed randomness
+      const dateNum = selectedDate.getDate() + selectedDate.getMonth() * 31;
+      const isWeekend = selectedDate.getDay() === 0 || selectedDate.getDay() === 6;
+      const isHoliday = dateNum % 10 === 0; // Every 10th day is a "holiday"
+      const isRainy = dateNum % 7 === 0; // Every 7th day is "rainy"
       
-      // Define hotspot areas based on San Francisco landmarks and districts
-      const hotspots = [
-        { x: 350, y: 150, intensity: 0.9, radius: 40 }, // Financial District
-        { x: 300, y: 220, intensity: 0.8, radius: 30 }, // Mission District
-        { x: 350, y: 200, intensity: 0.85, radius: 35 }, // SoMa
-        { x: 230, y: 100, intensity: 0.75, radius: 25 }, // North Beach/Fisherman's Wharf
-        { x: 200, y: 90, intensity: 0.7, radius: 30 },  // Marina
-        { x: 360, y: 160, intensity: 0.8, radius: 25 }, // Salesforce Tower area
-        { x: 380, y: 220, intensity: 0.75, radius: 30 }, // Oracle Park area
-        { x: 240, y: 150, intensity: 0.65, radius: 20 }, // Alamo Square
+      // Define Bay Area neighborhoods and landmarks
+      const bayAreaHotspots = [
+        // San Francisco
+        { 
+          name: "Financial District",
+          longitude: -122.399,
+          latitude: 37.794,
+          intensity: isWeekend ? 0.6 : 0.9, 
+          radius: isWeekend ? 0.3 : 0.4 
+        },
+        { 
+          name: "Mission District",
+          longitude: -122.418,
+          latitude: 37.763,
+          intensity: isWeekend ? 0.9 : 0.7, 
+          radius: isWeekend ? 0.25 : 0.25 
+        },
+        { 
+          name: "SoMa",
+          longitude: -122.401,
+          latitude: 37.778,
+          intensity: isHoliday ? 0.95 : 0.8, 
+          radius: isHoliday ? 0.45 : 0.35 
+        },
+        { 
+          name: "Fisherman's Wharf",
+          longitude: -122.409,
+          latitude: 37.806,
+          intensity: isWeekend || isHoliday ? 0.85 : 0.7, 
+          radius: isWeekend ? 0.35 : 0.25 
+        },
+        { 
+          name: "Marina",
+          longitude: -122.437,
+          latitude: 37.803,
+          intensity: isRainy ? 0.5 : 0.8,  
+          radius: isRainy ? 0.2 : 0.3 
+        },
+        { 
+          name: "Salesforce Tower",
+          longitude: -122.396,
+          latitude: 37.789,
+          intensity: isWeekend ? 0.6 : 0.85, 
+          radius: isWeekend ? 0.2 : 0.3 
+        },
+        { 
+          name: "Oracle Park",
+          longitude: -122.389,
+          latitude: 37.778,
+          intensity: (dateNum % 3 === 0) ? 0.9 : 0.7, 
+          radius: (dateNum % 3 === 0) ? 0.4 : 0.25 
+        },
+        { 
+          name: "Alamo Square",
+          longitude: -122.434,
+          latitude: 37.776,
+          intensity: isWeekend ? 0.8 : 0.6, 
+          radius: isWeekend ? 0.3 : 0.2 
+        },
+        {
+          name: "Union Square",
+          longitude: -122.407,
+          latitude: 37.788,
+          intensity: isWeekend ? 0.85 : 0.75,
+          radius: 0.25
+        },
+        {
+          name: "Chinatown",
+          longitude: -122.406,
+          latitude: 37.795,
+          intensity: isWeekend ? 0.8 : 0.7,
+          radius: 0.2
+        },
+        {
+          name: "Golden Gate Park",
+          longitude: -122.481,
+          latitude: 37.769,
+          intensity: isWeekend ? 0.75 : 0.4,
+          radius: isWeekend ? 0.5 : 0.3
+        },
+        {
+          name: "Haight-Ashbury",
+          longitude: -122.446,
+          latitude: 37.770,
+          intensity: isWeekend ? 0.7 : 0.5,
+          radius: 0.25
+        },
+        
+        // Oakland
+        {
+          name: "Downtown Oakland",
+          longitude: -122.271,
+          latitude: 37.804,
+          intensity: isWeekend ? 0.6 : 0.8,
+          radius: isWeekend ? 0.25 : 0.35
+        },
+        {
+          name: "Jack London Square",
+          longitude: -122.278,
+          latitude: 37.794,
+          intensity: isWeekend ? 0.75 : 0.6,
+          radius: 0.3
+        },
+        {
+          name: "Oakland Airport",
+          longitude: -122.212,
+          latitude: 37.721,
+          intensity: 0.7,
+          radius: 0.4
+        },
+        {
+          name: "Lake Merritt",
+          longitude: -122.259,
+          latitude: 37.807,
+          intensity: isWeekend ? 0.7 : 0.5,
+          radius: 0.3
+        },
+        
+        // Berkeley
+        {
+          name: "UC Berkeley",
+          longitude: -122.259,
+          latitude: 37.872,
+          intensity: isWeekend ? 0.5 : 0.8,
+          radius: 0.35
+        },
+        {
+          name: "Downtown Berkeley",
+          longitude: -122.268,
+          latitude: 37.871,
+          intensity: isWeekend ? 0.65 : 0.75,
+          radius: 0.3
+        },
+        
+        // San Jose
+        {
+          name: "Downtown San Jose",
+          longitude: -121.889,
+          latitude: 37.335,
+          intensity: isWeekend ? 0.6 : 0.8,
+          radius: 0.4
+        },
+        {
+          name: "San Jose Airport",
+          longitude: -121.929,
+          latitude: 37.363,
+          intensity: 0.75,
+          radius: 0.4
+        },
+        {
+          name: "Santana Row",
+          longitude: -121.947,
+          latitude: 37.321,
+          intensity: isWeekend ? 0.85 : 0.7,
+          radius: 0.3
+        },
+        
+        // Palo Alto / Silicon Valley
+        {
+          name: "Stanford University",
+          longitude: -122.170,
+          latitude: 37.428,
+          intensity: isWeekend ? 0.5 : 0.7,
+          radius: 0.35
+        },
+        {
+          name: "Palo Alto Downtown",
+          longitude: -122.163,
+          latitude: 37.444,
+          intensity: isWeekend ? 0.6 : 0.8,
+          radius: 0.3
+        },
+        {
+          name: "Mountain View",
+          longitude: -122.083,
+          latitude: 37.386,
+          intensity: isWeekend ? 0.5 : 0.75,
+          radius: 0.35
+        },
+        {
+          name: "Cupertino",
+          longitude: -122.032,
+          latitude: 37.323,
+          intensity: isWeekend ? 0.5 : 0.7,
+          radius: 0.3
+        }
       ];
       
+      // Add date-specific hotspots
+      if (dateNum % 5 === 0) {
+        // Special event at Civic Center
+        bayAreaHotspots.push({
+          name: "Civic Center Event",
+          longitude: -122.419,
+          latitude: 37.779,
+          intensity: 0.95,
+          radius: 0.45
+        });
+      }
+      
+      if (selectedDate.getDay() === 5) {
+        // Friday night in the Castro
+        bayAreaHotspots.push({
+          name: "Castro Nightlife",
+          longitude: -122.435,
+          latitude: 37.762,
+          intensity: 0.9,
+          radius: 0.35
+        });
+        
+        // Friday night in Downtown Oakland
+        bayAreaHotspots.push({
+          name: "Oakland Nightlife",
+          longitude: -122.268,
+          latitude: 37.806,
+          intensity: 0.85,
+          radius: 0.3
+        });
+      }
+      
+      // Add special events based on date
+      if (selectedDate.getDate() % 3 === 0) {
+        // Concert at Chase Center
+        bayAreaHotspots.push({
+          name: "Chase Center Event",
+          longitude: -122.387,
+          latitude: 37.768,
+          intensity: 0.95,
+          radius: 0.4
+        });
+        
+        // Event at SAP Center (San Jose)
+        bayAreaHotspots.push({
+          name: "SAP Center Event",
+          longitude: -121.901,
+          latitude: 37.332,
+          intensity: 0.9,
+          radius: 0.4
+        });
+      }
+      
+      if (selectedDate.getDate() % 7 === 0) {
+        // Festival at Golden Gate Park
+        bayAreaHotspots.push({
+          name: "Golden Gate Park Festival",
+          longitude: -122.481,
+          latitude: 37.769,
+          intensity: 0.9,
+          radius: 0.5
+        });
+        
+        // Event at Oakland Coliseum
+        bayAreaHotspots.push({
+          name: "Oakland Coliseum Event",
+          longitude: -122.201,
+          latitude: 37.752,
+          intensity: 0.9,
+          radius: 0.45
+        });
+      }
+      
       // Add time-based variation based on selected timeframe
-      const selectedTimeframe = String(timeframe[0]?.label || '').toLowerCase();
-      const timeMultiplier = selectedTimeframe.includes('hour') ? 1 : 
-                            selectedTimeframe.includes('3') ? 0.8 : 0.6;
+      const selectedTimeframeValue = timeframe && timeframe.length > 0 ? String(timeframe[0]?.label || '') : 'Next Hour';
+      const timeMultiplier = selectedTimeframeValue.includes('Hour') || selectedTimeframeValue.includes('hour') ? 1 : 
+                            selectedTimeframeValue.includes('3') ? 0.8 : 0.6;
       
       // Generate points around hotspots
-      hotspots.forEach(hotspot => {
+      bayAreaHotspots.forEach(hotspot => {
         // Adjust intensity based on time of day
         const adjustedIntensity = hotspot.intensity * timeMultiplier;
         
         // Create dense cluster at the center of each hotspot
-        const centerPoint = {
-          x: hotspot.x + (Math.random() * 10 - 5),
-          y: hotspot.y + (Math.random() * 10 - 5),
-          value: adjustedIntensity * (0.9 + Math.random() * 0.2)
-        };
-        mockData.push(centerPoint);
+        const centerLongitude = hotspot.longitude + (Math.random() * 0.002 - 0.001);
+        const centerLatitude = hotspot.latitude + (Math.random() * 0.002 - 0.001);
+        
+        // Only add the point if it's on land
+        if (isPointOnLand(centerLongitude, centerLatitude)) {
+          const centerPoint = {
+            position: [centerLongitude, centerLatitude] as [number, number],
+            value: adjustedIntensity * (0.9 + Math.random() * 0.2)
+          };
+          mockData.push(centerPoint);
+        }
         
         // Create surrounding points with decreasing intensity
-        const pointsInCluster = Math.floor(hotspot.radius / 2);
-        for (let i = 0; i < pointsInCluster; i++) {
+        const pointsInCluster = Math.floor(hotspot.radius * 100);
+        let clusterPointsAdded = 0;
+        let attempts = 0;
+        const maxAttempts = 200; // Prevent infinite loops
+        
+        while (clusterPointsAdded < pointsInCluster && attempts < maxAttempts) {
+          attempts++;
+          
           const distance = Math.random() * hotspot.radius;
           const angle = Math.random() * Math.PI * 2;
-          const x = hotspot.x + Math.cos(angle) * distance;
-          const y = hotspot.y + Math.sin(angle) * distance;
+          const longitude = hotspot.longitude + Math.cos(angle) * distance * 0.01;
+          const latitude = hotspot.latitude + Math.sin(angle) * distance * 0.01;
           
-          // Intensity decreases with distance from center
-          const distanceFactor = 1 - (distance / hotspot.radius);
-          const value = adjustedIntensity * distanceFactor * (0.7 + Math.random() * 0.3);
-          
-          mockData.push({ x, y, value });
+          // Only add the point if it's on land
+          if (isPointOnLand(longitude, latitude)) {
+            // Intensity decreases with distance from center
+            const distanceFactor = 1 - (distance / hotspot.radius);
+            const value = adjustedIntensity * distanceFactor * (0.7 + Math.random() * 0.3);
+            
+            mockData.push({ 
+              position: [longitude, latitude] as [number, number], 
+              value 
+            });
+            clusterPointsAdded++;
+          }
         }
       });
       
       // Add some random points for areas with lower demand
-      const lowDemandPoints = Math.floor(numPoints * 0.3);
-      for (let i = 0; i < lowDemandPoints; i++) {
-        mockData.push({
-          x: 150 + Math.random() * 250,
-          y: Math.random() * 400,
-          value: Math.random() * 0.3
-        });
+      const lowDemandPoints = 400; // Increased for larger area
+      let pointsAdded = 0;
+      let attempts = 0;
+      const maxAttempts = 1000; // Prevent infinite loops
+      
+      while (pointsAdded < lowDemandPoints && attempts < maxAttempts) {
+        attempts++;
+        
+        // Randomly select which region to place the point
+        const region = Math.floor(Math.random() * 4);
+        let longitude, latitude;
+        
+        switch(region) {
+          case 0: // San Francisco - more precise boundaries
+            longitude = -122.47 + Math.random() * 0.08;
+            latitude = 37.75 + Math.random() * 0.06;
+            break;
+          case 1: // Oakland/Berkeley - more precise boundaries
+            longitude = -122.30 + Math.random() * 0.08;
+            latitude = 37.80 + Math.random() * 0.06;
+            break;
+          case 2: // Peninsula
+            longitude = -122.40 + Math.random() * 0.10;
+            latitude = 37.55 + Math.random() * 0.10;
+            break;
+          case 3: // South Bay
+            longitude = -122.00 + Math.random() * 0.15;
+            latitude = 37.35 + Math.random() * 0.10;
+            break;
+          default:
+            longitude = -122.25 + Math.random() * 0.30;
+            latitude = 37.60 + Math.random() * 0.30;
+        }
+        
+        // Only add the point if it's on land
+        if (isPointOnLand(longitude, latitude)) {
+          mockData.push({
+            position: [longitude, latitude] as [number, number],
+            value: Math.random() * 0.3
+          });
+          pointsAdded++;
+        }
       }
       
       // Add some points along major roads
-      const roadPoints = Math.floor(numPoints * 0.2);
-      const majorRoads = [
-        // Market Street
-        { x1: 200, y1: 100, x2: 400, y2: 200 },
-        // Van Ness
-        { x1: 270, y1: 0, x2: 270, y2: 400 },
-        // Geary
-        { x1: 150, y1: 120, x2: 400, y2: 120 },
-        // Mission Street
-        { x1: 220, y1: 150, x2: 350, y2: 250 },
-        // 3rd Street
-        { x1: 350, y1: 150, x2: 350, y2: 400 },
-        // Embarcadero
-        { x1: 400, y1: 100, x2: 400, y2: 300 }
+      const bayAreaMajorRoads = [
+        // San Francisco
+        { name: "Market Street", start: [-122.42, 37.774], end: [-122.396, 37.794] },
+        { name: "Van Ness Ave", start: [-122.422, 37.74], end: [-122.422, 37.79] },
+        { name: "Geary Blvd", start: [-122.45, 37.781], end: [-122.39, 37.781] },
+        { name: "Mission Street", start: [-122.42, 37.765], end: [-122.405, 37.79] },
+        { name: "3rd Street", start: [-122.4, 37.77], end: [-122.39, 37.78] },
+        { name: "Embarcadero", start: [-122.395, 37.77], end: [-122.395, 37.79] },
+        { name: "19th Avenue", start: [-122.476, 37.75], end: [-122.476, 37.78] },
+        { name: "Divisadero", start: [-122.439, 37.77], end: [-122.439, 37.8] },
+        { name: "California Street", start: [-122.45, 37.788], end: [-122.4, 37.788] },
+        
+        // Oakland/Berkeley
+        { name: "Broadway Oakland", start: [-122.271, 37.79], end: [-122.255, 37.83] },
+        { name: "Telegraph Ave", start: [-122.268, 37.81], end: [-122.258, 37.87] },
+        { name: "International Blvd", start: [-122.24, 37.75], end: [-122.16, 37.73] },
+        { name: "Grand Ave", start: [-122.265, 37.81], end: [-122.245, 37.815] },
+        { name: "Shattuck Ave", start: [-122.268, 37.85], end: [-122.266, 37.88] },
+        
+        // Peninsula/South Bay
+        { name: "El Camino Real", start: [-122.40, 37.65], end: [-121.92, 37.35] },
+        { name: "Stevens Creek Blvd", start: [-122.05, 37.32], end: [-121.94, 37.32] },
+        { name: "San Carlos St", start: [-121.91, 37.33], end: [-121.86, 37.34] },
+        { name: "University Ave PA", start: [-122.17, 37.44], end: [-122.14, 37.45] },
+        
+        // Major Highways
+        { name: "101 North", start: [-122.40, 37.6], end: [-122.39, 37.8] },
+        { name: "101 South", start: [-122.07, 37.35], end: [-121.85, 37.30] },
+        { name: "280", start: [-122.40, 37.6], end: [-121.95, 37.33] },
+        { name: "880", start: [-122.30, 37.65], end: [-122.17, 37.85] },
+        { name: "580", start: [-122.30, 37.8], end: [-122.15, 37.7] }
       ];
       
-      for (let i = 0; i < roadPoints; i++) {
-        const road = majorRoads[Math.floor(Math.random() * majorRoads.length)];
-        const t = Math.random();
-        const x = road.x1 + (road.x2 - road.x1) * t;
-        const y = road.y1 + (road.y2 - road.y1) * t;
+      const roadPoints = 300; // Increased for larger area
+      let roadPointsAdded = 0;
+      attempts = 0;
+      
+      while (roadPointsAdded < roadPoints && attempts < maxAttempts) {
+        attempts++;
         
-        mockData.push({
-          x,
-          y,
-          value: 0.3 + Math.random() * 0.3
-        });
+        const road = bayAreaMajorRoads[Math.floor(Math.random() * bayAreaMajorRoads.length)];
+        const t = Math.random();
+        const longitude = road.start[0] + (road.end[0] - road.start[0]) * t;
+        const latitude = road.start[1] + (road.end[1] - road.start[1]) * t;
+        
+        // Double-check that the point is on land
+        if (isPointOnLand(longitude, latitude)) {
+          mockData.push({
+            position: [longitude, latitude] as [number, number],
+            value: 0.3 + Math.random() * 0.3
+          });
+          roadPointsAdded++;
+        }
       }
       
-      // Add some points along bridges
-      const bridgePoints = Math.floor(numPoints * 0.1);
-      const bridges = [
-        { x1: 150, y1: 80, x2: 50, y2: 60 }, // Golden Gate
-        { x1: 400, y1: 150, x2: 600, y2: 130 } // Bay Bridge
-      ];
-      
-      for (let i = 0; i < bridgePoints; i++) {
-        const bridge = bridges[Math.floor(Math.random() * bridges.length)];
-        const t = Math.random();
-        const x = bridge.x1 + (bridge.x2 - bridge.x1) * t;
-        const y = bridge.y1 + (bridge.y2 - bridge.y1) * t;
-        
-        mockData.push({
-          x,
-          y,
-          value: 0.4 + Math.random() * 0.3
-        });
-      }
-      
-      // Avoid points in the water areas
-      return mockData.filter(point => {
-        // Check if point is in Pacific Ocean
-        if (point.x < 150) {
-          return false;
-        }
-        
-        // Check if point is in SF Bay
-        if (point.x > 400) {
-          // Bay area
-          return false;
-        }
-        
-        // Check if point is within the peninsula shape
-        return true;
-      });
+      return mockData;
     };
     
-    setMockData(generateMockData());
-  }, [timeframe]);
+    setHeatmapData(generateMockData());
+  }, [timeframe, selectedDate]);
   
-  const { data, loading, error } = useQuery(GET_DRIVER_HEATMAP_DATA, {
-    variables: { timeframe: timeframe[0]?.id || '1' },
+  // Query for heatmap data - you can use mock data instead if your GraphQL server isn't set up
+  const { loading, error, data } = useQuery(GET_DRIVER_HEATMAP_DATA, {
+    skip: true, // Skip the actual GraphQL query and use mock data instead
+    onError: (err) => {
+      console.error("GraphQL error:", err);
+      // Continue with mock data if the GraphQL query fails
+    }
   });
   
-  const timeframeOptions = [
-    { id: '1', label: 'Next Hour' },
-    { id: '3', label: 'Next 3 Hours' },
-    { id: '6', label: 'Next 6 Hours' },
+  // Always use mock data for the heatmap
+  const displayData = heatmapData;
+  
+  // Get date-specific title
+  const getDateSpecificTitle = () => {
+    if (selectedDate.getTime() === new Date().setHours(0, 0, 0, 0)) {
+      return "Today's Driver Demand in Bay Area";
+    } else if (selectedDate > new Date()) {
+      return `Predicted Demand for ${selectedDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} in Bay Area`;
+    } else {
+      return `Historical Demand for ${selectedDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} in Bay Area`;
+    }
+  };
+  
+  // Define layers for deck.gl
+  const layers = [
+    new HexagonLayer({
+      id: 'heatmap-layer',
+      data: displayData,
+      pickable: true,
+      extruded: true,
+      radius: 100,
+      elevationScale: 4,
+      getPosition: (d: HeatmapPoint) => d.position,
+      getElevationWeight: (d: HeatmapPoint) => d.value * 10,
+      getColorWeight: (d: HeatmapPoint) => d.value * 10,
+      colorRange: [
+        [65, 182, 196, 180],  // Light blue
+        [127, 205, 187, 180], // Teal
+        [199, 233, 180, 200], // Light green
+        [237, 248, 177, 200], // Yellow
+        [255, 170, 0, 220],   // Orange
+        [255, 87, 51, 255]    // Red
+      ],
+      coverage: 0.9,
+      upperPercentile: 90,
+      material: {
+        ambient: 0.64,
+        diffuse: 0.6,
+        shininess: 32,
+        specularColor: [51, 51, 51]
+      }
+    }),
+    new ScatterplotLayer({
+      id: 'highlight-layer',
+      data: displayData.filter(d => d.value > 0.7),
+      pickable: true,
+      opacity: 0.8,
+      stroked: true,
+      filled: true,
+      radiusScale: 6,
+      radiusMinPixels: 3,
+      radiusMaxPixels: 15,
+      lineWidthMinPixels: 1,
+      getPosition: (d: HeatmapPoint) => d.position,
+      getRadius: (d: HeatmapPoint) => d.value * 20,
+      getFillColor: (d: HeatmapPoint) => [255, 140, 0, 200],
+      getLineColor: (d: HeatmapPoint) => [255, 140, 0, 80]
+    })
   ];
   
-  const width = 600;
-  const height = 400;
+  // Handle view state changes
+  const handleViewStateChange = (info: ViewStateChangeInfo) => {
+    setViewState(info.viewState);
+  };
   
+  // Create DeckGL props to avoid TypeScript errors
+  const deckGLProps = {
+    ref: deckRef,
+    initialViewState: INITIAL_VIEW_STATE,
+    controller: true,
+    layers,
+    getTooltip: ({object}: any) => object && `Demand: ${Math.round(object.colorValue * 10) / 10}`,
+    width: "100%",
+    height: "100%",
+    // @ts-ignore - onViewStateChange is supported by DeckGL but not in our type definitions
+    onViewStateChange: handleViewStateChange
+  };
+
   return (
-    <Card overrides={{
-      Root: {
-        style: {
-          width: '100%',
-          backgroundColor: '#1E1E1E',
-          color: '#FFFFFF',
-          borderRadius: '8px',
-          boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)'
-        }
-      },
-      Contents: {
-        style: {
-          padding: '24px'
-        }
-      }
-    }}>
-      <HeadingMedium $style={{ 
-        color: '#FFFFFF', 
-        marginTop: 0, 
-        marginBottom: '24px',
-        borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
-        paddingBottom: '12px'
-      }}>
-        Demand Forecast Heatmap
-      </HeadingMedium>
-      
-      <div className={css({ marginBottom: '16px' })}>
-        <Select
-          options={timeframeOptions}
-          value={timeframe}
-          onChange={params => setTimeframe(params.value)}
-          placeholder="Select timeframe"
-          overrides={{
-            ControlContainer: {
-              style: {
-                backgroundColor: 'rgba(255, 255, 255, 0.1)',
-                borderColor: 'rgba(255, 255, 255, 0.2)'
-              }
-            },
-            ValueContainer: {
-              style: {
-                color: '#FFFFFF'
-              }
-            }
-          }}
-        />
-      </div>
-      
-      {loading ? (
-        <div className={css({ 
-          display: 'flex', 
-          justifyContent: 'center', 
-          alignItems: 'center',
-          padding: '40px',
-          height: `${height}px`
-        })}>
-          <Spinner size="large" />
-          <span className={css({ marginLeft: '12px', color: '#FFFFFF' })}>Loading heatmap data...</span>
-        </div>
-      ) : error ? (
+    <div className={css({
+      fontFamily: 'var(--font-family-base)',
+    })}>
+      <CardWrapper 
+        title={getDateSpecificTitle()} 
+        subtitle="Real-time demand across the Bay Area"
+      >
         <div className={css({
-          padding: '40px',
-          textAlign: 'center',
-          backgroundColor: 'rgba(255, 0, 0, 0.1)',
-          borderRadius: '8px',
-          height: `${height}px`,
           display: 'flex',
+          justifyContent: 'space-between',
           alignItems: 'center',
-          justifyContent: 'center'
+          marginBottom: '16px'
         })}>
-          <ParagraphSmall $style={{ color: '#FF5555' }}>
-            Error loading heatmap data: {error.message}
-          </ParagraphSmall>
+          <h3 className={css({
+            margin: 0,
+            fontSize: 'var(--font-size-heading-small)',
+            fontWeight: 700,
+            color: 'var(--dark-gray)'
+          })}>
+            San Francisco
+          </h3>
+          
+          <Select
+            options={[
+              { id: '1', label: 'Next Hour' },
+              { id: '2', label: 'Next 3 Hours' },
+              { id: '3', label: 'Next 6 Hours' }
+            ]}
+            value={timeframe}
+            onChange={params => setTimeframe(params.value)}
+            overrides={{
+              Root: {
+                style: {
+                  borderRadius: '8px',
+                  border: '1px solid var(--medium-gray)',
+                }
+              },
+              ControlContainer: {
+                style: {
+                  backgroundColor: 'var(--uber-white)',
+                  borderRadius: '8px',
+                }
+              },
+              ValueContainer: {
+                style: {
+                  fontSize: 'var(--font-size-body)',
+                  fontFamily: 'var(--font-family-base)',
+                }
+              },
+              Dropdown: {
+                style: {
+                  borderRadius: '8px',
+                  boxShadow: '0 2px 10px var(--shadow-color)',
+                }
+              }
+            }}
+          />
         </div>
-      ) : (
-        <Heatmap 
-          data={data?.driverHeatmapData || mockData}
-          width={width}
-          height={height}
-        />
-      )}
-      
-      <div className={css({ 
-        marginTop: '24px', 
-        display: 'flex', 
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: 'rgba(0, 0, 0, 0.2)',
-        padding: '12px',
-        borderRadius: '8px'
-      })}>
+        
+        {loading ? (
+          <div className={css({ 
+            display: 'flex', 
+            justifyContent: 'center', 
+            alignItems: 'center',
+            padding: '40px',
+            height: `${height}px`,
+            backgroundColor: 'var(--map-dark-blue, #1a1b29)',
+            borderRadius: '8px',
+          })}>
+            <Spinner size="large" />
+            <span className={css({ 
+              marginLeft: '12px', 
+              color: 'var(--uber-white, #ffffff)',
+              fontSize: 'var(--font-size-body)',
+            })}>
+              Loading heatmap data...
+            </span>
+          </div>
+        ) : error ? (
+          <div className={css({
+            padding: '40px',
+            textAlign: 'center',
+            backgroundColor: 'rgba(230, 0, 0, 0.1)',
+            borderRadius: '8px',
+            height: `${height}px`,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center'
+          })}>
+            <p className={css({ 
+              color: 'var(--error, #e00000)',
+              fontSize: 'var(--font-size-body)',
+              margin: 0,
+            })}>
+              Error loading heatmap data. Using mock data instead.
+            </p>
+          </div>
+        ) : (
+          <div className={css({ 
+            position: 'relative',
+            height: `${height}px`,
+            borderRadius: '8px',
+            overflow: 'hidden'
+          })}>
+            <DeckGL
+              {...deckGLProps}
+            >
+              <Map
+                mapLib={maplibregl}
+                mapStyle="https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json"
+                style={{ width: '100%', height: '100%' }}
+                reuseMaps
+              />
+            </DeckGL>
+            
+            <div className={css({
+              position: 'absolute',
+              bottom: '16px',
+              right: '16px',
+              backgroundColor: 'rgba(0, 0, 0, 0.7)',
+              padding: '8px 12px',
+              borderRadius: '4px',
+              color: 'white',
+              fontSize: '12px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '4px',
+              zIndex: 10 // Ensure it appears above the map
+            })}>
+              <div className={css({ display: 'flex', alignItems: 'center', gap: '8px' })}>
+                <div className={css({ width: '12px', height: '12px', backgroundColor: 'rgb(255, 87, 51)', borderRadius: '2px' })} />
+                <span>High Demand</span>
+              </div>
+              <div className={css({ display: 'flex', alignItems: 'center', gap: '8px' })}>
+                <div className={css({ width: '12px', height: '12px', backgroundColor: 'rgb(255, 170, 0)', borderRadius: '2px' })} />
+                <span>Medium Demand</span>
+              </div>
+              <div className={css({ display: 'flex', alignItems: 'center', gap: '8px' })}>
+                <div className={css({ width: '12px', height: '12px', backgroundColor: 'rgb(127, 205, 187)', borderRadius: '2px' })} />
+                <span>Low Demand</span>
+              </div>
+            </div>
+            
+            <button 
+              className={css({
+                position: 'absolute',
+                bottom: '16px',
+                left: '16px',
+                backgroundColor: 'var(--uber-black, #000000)',
+                color: 'var(--uber-white, #ffffff)',
+                border: 'none',
+                borderRadius: '50%',
+                width: '40px',
+                height: '40px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                boxShadow: '0 2px 4px var(--shadow-color, rgba(0, 0, 0, 0.2))',
+                cursor: 'pointer',
+                zIndex: 10,
+                fontSize: 'var(--font-size-heading-small, 18px)',
+                fontWeight: 700,
+              })}
+              onClick={() => setIsInfoSheetOpen(true)}
+            >
+              i
+            </button>
+          </div>
+        )}
+        
         <div className={css({ 
+          marginTop: '24px', 
           display: 'flex', 
-          alignItems: 'center', 
-          marginRight: '24px',
-          background: 'linear-gradient(to right, rgba(0, 180, 255, 0.7), rgba(255, 200, 0, 0.7), rgba(255, 0, 0, 0.7))',
-          height: '8px',
-          width: '120px',
-          borderRadius: '4px'
-        })} />
-        
-        <div className={css({ display: 'flex', alignItems: 'center', marginRight: '16px' })}>
-          <div className={css({ 
-            width: '12px', 
-            height: '12px', 
-            backgroundColor: 'rgba(0, 180, 255, 0.7)', 
-            marginRight: '8px',
-            borderRadius: '2px',
-          })} />
-          <ParagraphSmall $style={{ color: 'rgba(255, 255, 255, 0.7)' }}>Low</ParagraphSmall>
+          alignItems: 'center',
+          justifyContent: 'center',
+          backgroundColor: 'rgba(0, 0, 0, 0.05)',
+          padding: '12px',
+          borderRadius: '8px'
+        })}>
+          <Button 
+            variant="primary" 
+            fullWidth
+            onClick={() => {
+              // Handle go online action
+              console.log('Go online clicked');
+            }}
+          >
+            Go Online Now
+          </Button>
+        </div>
+      </CardWrapper>
+      
+      <BottomSheet 
+        isOpen={isInfoSheetOpen} 
+        onClose={() => setIsInfoSheetOpen(false)}
+      >
+        <div className={css({
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          marginBottom: '16px'
+        })}>
+          <h3 className={css({
+            margin: 0,
+            fontSize: 'var(--font-size-heading-medium, 24px)',
+            fontWeight: 700
+          })}>
+            Demand Information
+          </h3>
+          
+          <button 
+            className={css({
+              background: 'none',
+              border: 'none',
+              fontSize: '24px',
+              cursor: 'pointer'
+            })}
+            onClick={() => setIsInfoSheetOpen(false)}
+          >
+            ×
+          </button>
         </div>
         
-        <div className={css({ display: 'flex', alignItems: 'center', marginRight: '16px' })}>
-          <div className={css({ 
-            width: '12px', 
-            height: '12px', 
-            backgroundColor: 'rgba(255, 200, 0, 0.7)', 
-            marginRight: '8px',
-            borderRadius: '2px',
-          })} />
-          <ParagraphSmall $style={{ color: 'rgba(255, 255, 255, 0.7)' }}>Medium</ParagraphSmall>
-        </div>
+        <p className={css({
+          fontSize: 'var(--font-size-body, 16px)',
+          lineHeight: 'var(--line-height-body, 1.5)',
+          color: 'var(--dark-gray, #4A4A4A)',
+          marginBottom: '24px'
+        })}>
+          This heatmap shows the predicted driver demand across the Bay Area for {selectedDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}. 
+          Darker red areas indicate higher demand, while blue areas show lower demand.
+        </p>
         
-        <div className={css({ display: 'flex', alignItems: 'center' })}>
-          <div className={css({ 
-            width: '12px', 
-            height: '12px', 
-            backgroundColor: 'rgba(255, 0, 0, 0.7)', 
-            marginRight: '8px',
-            borderRadius: '2px',
-          })} />
-          <ParagraphSmall $style={{ color: 'rgba(255, 255, 255, 0.7)' }}>High</ParagraphSmall>
-        </div>
-      </div>
-    </Card>
+        <h4 className={css({
+          fontSize: 'var(--font-size-heading-small, 18px)',
+          fontWeight: 600,
+          marginBottom: '8px',
+          marginTop: '24px'
+        })}>
+          Tips for Today
+        </h4>
+        
+        <p className={css({
+          fontSize: 'var(--font-size-body, 16px)',
+          lineHeight: 'var(--line-height-body, 1.5)',
+          color: 'var(--dark-gray, #4A4A4A)',
+          marginBottom: '16px'
+        })}>
+          {selectedDate.getDay() === 0 || selectedDate.getDay() === 6 ? (
+            <>
+              Weekend demand is highest in entertainment districts across the Bay Area. 
+              Focus on Mission District, Marina, and Downtown Oakland in the evening. 
+              Airport pickups are steady throughout the day.
+              {selectedDate.getDate() % 7 === 0 && (
+                <> There are special events today that will increase demand in certain areas.</>
+              )}
+            </>
+          ) : (
+            <>
+              Weekday demand peaks during morning (7-9 AM) and evening (4-7 PM) commute hours.
+              Financial District in SF, Downtown Oakland, and Silicon Valley office areas will be busiest.
+              {selectedDate.getDate() % 3 === 0 && (
+                <> There are events scheduled today that will create demand hotspots.</>
+              )}
+            </>
+          )}
+        </p>
+        
+        <h4 className={css({
+          fontSize: 'var(--font-size-heading-small, 18px)',
+          fontWeight: 600,
+          marginBottom: '8px',
+          marginTop: '24px'
+        })}>
+          Hotspots Today
+        </h4>
+        
+        <ul className={css({
+          fontSize: 'var(--font-size-body, 16px)',
+          lineHeight: 'var(--line-height-body, 1.5)',
+          color: 'var(--dark-gray, #4A4A4A)',
+          marginBottom: '16px',
+          paddingLeft: '20px'
+        })}>
+          {selectedDate.getDay() === 0 || selectedDate.getDay() === 6 ? (
+            // Weekend hotspots
+            <>
+              <li>Mission District, SF - High demand for restaurants and bars</li>
+              <li>Union Square, SF - Shopping and tourist activity</li>
+              <li>Marina/North Beach, SF - Nightlife and dining</li>
+              <li>Downtown Oakland - Weekend events and dining</li>
+              <li>Berkeley - Campus area and Downtown</li>
+              {selectedDate.getDate() % 7 === 0 && (
+                <li>Golden Gate Park, SF - Special event creating high demand</li>
+              )}
+              {selectedDate.getDate() % 3 === 0 && (
+                <>
+                  <li>Chase Center, SF - Event creating surge demand</li>
+                  <li>SAP Center, San Jose - Event creating surge demand</li>
+                </>
+              )}
+              <li>Santana Row, San Jose - Shopping and dining</li>
+              <li>SFO & OAK Airports - Consistent demand</li>
+            </>
+          ) : (
+            // Weekday hotspots
+            <>
+              <li>Financial District, SF - Business commuters</li>
+              <li>SoMa, SF - Tech offices and business travelers</li>
+              <li>Downtown Oakland - Business district</li>
+              <li>Silicon Valley - Office parks in Mountain View, Palo Alto, and Cupertino</li>
+              <li>Stanford University - Campus activity</li>
+              {selectedDate.getDate() % 5 === 0 && (
+                <li>Civic Center, SF - Special event creating high demand</li>
+              )}
+              {selectedDate.getDay() === 5 && (
+                <>
+                  <li>Castro, SF - Friday night entertainment</li>
+                  <li>Downtown Oakland - Friday night entertainment</li>
+                </>
+              )}
+              <li>SFO, OAK & SJC Airports - Business travelers</li>
+            </>
+          )}
+          {selectedDate.getDate() % 7 === 0 && (
+            <li>Weather Alert: Rainy conditions expected - demand typically increases by 20-30%</li>
+          )}
+        </ul>
+        
+        <Button 
+          variant="primary" 
+          fullWidth
+          onClick={() => {
+            setIsInfoSheetOpen(false);
+            // Handle go online action
+            console.log('Go online clicked from info sheet');
+          }}
+        >
+          Go Online Now
+        </Button>
+      </BottomSheet>
+    </div>
   );
 };
 
-export default DriverHeatmap; 
+export default DriverHeatmap;
