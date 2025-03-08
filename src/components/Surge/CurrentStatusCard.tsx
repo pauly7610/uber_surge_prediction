@@ -69,7 +69,6 @@ const CurrentStatusCard: React.FC<CurrentStatusCardProps> = ({ selectedDate, cur
   
   // Determine demand level based on surge multiplier
   const isHighDemand = currentSurge > 1.5;
-  const isModerateOrHighDemand = currentSurge > 1.2;
   const isLowDemand = currentSurge <= 1.2;
   
   // Determine if price lock is available (only for future dates or today)

@@ -1,18 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { useStyletron } from 'baseui';
 import { Grid, Cell } from 'baseui/layout-grid';
-import { HeadingLarge, HeadingSmall } from 'baseui/typography';
-import { format, addMinutes } from 'date-fns';
+import { HeadingLarge } from 'baseui/typography';
+import { format } from 'date-fns';
 
-// Import components from the Surge directory
+// Import components
 import DateSelector from '../components/Surge/DateSelector';
-import CurrentStatusCard from '../components/Surge/CurrentStatusCard';
 import SurgeTimeline from '../components/SurgeTimeline/SurgeTimeline';
+import CurrentStatusCard from '../components/Surge/CurrentStatusCard';
 import AlternativeRoutesCard from '../components/Surge/AlternativeRoutesCard';
 import TimeSlotsCard from '../components/Surge/TimeSlotsCard';
 import PriceLockStatusBar from '../components/Surge/PriceLockStatusBar';
 
-// Define types for our data structures
+// Define interfaces for data types
 interface TimelineDataItem {
   hour: number;
   time: string;
@@ -46,54 +46,54 @@ interface PriceLockInfo {
 
 // Mock data generators
 const generateMockTimelineData = (date: Date): TimelineDataItem[] => {
-  // Use the date to seed some randomness
-  const dateNum = date.getDate() + date.getMonth() * 31;
+  const data: TimelineDataItem[] = [];
   const isWeekend = date.getDay() === 0 || date.getDay() === 6;
-  const isHoliday = dateNum % 10 === 0; // Every 10th day is a "holiday"
   
-  // Base multiplier is higher on weekends and holidays
-  const baseMultiplier = isWeekend ? 1.3 : isHoliday ? 1.5 : 1.0;
-  
-  return Array.from({ length: 24 }, (_, i) => {
-    // Morning rush (7-9 AM)
-    const morningRush = (i >= 7 && i <= 9) ? 0.5 : 0;
-    // Evening rush (4-7 PM)
-    const eveningRush = (i >= 16 && i <= 19) ? 0.7 : 0;
-    // Late night (10 PM - 2 AM)
-    const lateNight = (i >= 22 || i <= 2) ? 0.4 : 0;
+  for (let hour = 0; hour < 24; hour++) {
+    // Base surge multiplier
+    let surge = 1.0;
     
-    // Calculate surge based on time of day
-    const timeBasedSurge = morningRush + eveningRush + lateNight;
-    
+    // Morning rush hour (7-9 AM)
+    if (hour >= 7 && hour <= 9 && !isWeekend) {
+      surge = 1.5 + Math.random() * 0.5;
+    }
+    // Evening rush hour (4-7 PM)
+    else if (hour >= 16 && hour <= 19 && !isWeekend) {
+      surge = 1.7 + Math.random() * 0.8;
+    }
+    // Weekend evening surge (6-10 PM)
+    else if (hour >= 18 && hour <= 22 && isWeekend) {
+      surge = 1.4 + Math.random() * 0.6;
+    }
+    // Late night (11 PM - 2 AM)
+    else if (hour >= 23 || hour <= 2) {
+      surge = 1.2 + Math.random() * 0.4;
+    }
     // Add some randomness
-    const randomFactor = Math.sin(i / 3 + dateNum) * 0.3;
+    surge += (Math.random() - 0.5) * 0.2;
+    surge = Math.max(1.0, Math.round(surge * 10) / 10);
     
-    // Calculate final surge value
-    const surge = Math.max(1.0, baseMultiplier + timeBasedSurge + randomFactor);
+    // Format the time
+    const timeDate = new Date(date);
+    timeDate.setHours(hour, 0, 0, 0);
+    const time = `${hour}:00`;
+    const formattedTime = format(timeDate, 'h a');
     
-    // Calculate confidence (higher during predictable times)
-    const confidence = 70 + (morningRush || eveningRush ? 20 : 0) - Math.abs(randomFactor) * 30;
-    
-    return {
-      hour: i,
-      time: `${i}:00`,
-      formattedTime: `${i % 12 === 0 ? 12 : i % 12}:00 ${i < 12 ? 'AM' : 'PM'}`,
-      surge: parseFloat(surge.toFixed(2)),
-      confidence: Math.round(confidence)
-    };
-  });
+    data.push({
+      hour,
+      time,
+      formattedTime,
+      surge,
+      confidence: 0.7 + Math.random() * 0.3
+    });
+  }
+  
+  return data;
 };
 
 const generateMockRoutes = (date: Date): RouteItem[] => {
-  // Use the date to seed some randomness
-  const dateNum = date.getDate() + date.getMonth() * 31;
   const isWeekend = date.getDay() === 0 || date.getDay() === 6;
   
-  // Base time and price
-  const baseTime = isWeekend ? 18 : 22;
-  const basePrice = isWeekend ? 22.50 : 28.75;
-  
-  // Add surge property to each route
   return [
     {
       route: 'Main St → Downtown',
@@ -212,23 +212,25 @@ const generateTimeSlots = (date: Date): TimeSlot[] => {
 };
 
 const calculatePriceLockSavings = (timelineData: TimelineDataItem[]): PriceLockInfo => {
-  const basePrice = 25.00;
-  const maxSurge = Math.max(...timelineData.map(item => item.surge)) || 1.5;
-  const projectedPeak = basePrice * maxSurge;
-  const lockedPrice = basePrice * 1.1; // 10% above base
-  const savingsPercent = Math.round(((projectedPeak - lockedPrice) / projectedPeak) * 100);
+  // Find the peak surge in the timeline data
+  const peakSurge = Math.max(...timelineData.map(item => item.surge));
+  
+  // Calculate a locked price (slightly above current, but below peak)
+  const currentSurge = timelineData[0]?.surge || 1.0;
+  const lockedPrice = currentSurge * 1.1;
+  
+  // Calculate savings percentage
+  const savingsPercent = Math.round((peakSurge - lockedPrice) / peakSurge * 100);
   
   return {
     lockedPrice,
-    projectedPeak,
-    savingsPercent
+    projectedPeak: peakSurge,
+    savingsPercent: Math.max(0, savingsPercent)
   };
 };
 
-// Convert TimelineDataItem to SurgePrediction format for SurgeTimeline
 const convertToSurgePredictions = (data: TimelineDataItem[], selectedDate: Date): { timestamp: string; multiplier: number }[] => {
   return data.map(item => {
-    // Create a new date object based on the selected date
     const date = new Date(selectedDate);
     date.setHours(item.hour, 0, 0, 0);
     return {
@@ -238,7 +240,6 @@ const convertToSurgePredictions = (data: TimelineDataItem[], selectedDate: Date)
   });
 };
 
-/* Main Dashboard component */
 const Dashboard: React.FC = () => {
   const [css] = useStyletron();
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
@@ -249,8 +250,7 @@ const Dashboard: React.FC = () => {
   const [selectedTimeSlot, setSelectedTimeSlot] = useState<TimeSlot | null>(null);
   const [priceLockInfo, setPriceLockInfo] = useState<PriceLockInfo | null>(null);
   const [selectedRoute, setSelectedRoute] = useState<RouteItem | null>(null);
-  const [showPriceLock, setShowPriceLock] = useState<boolean>(false);
-  
+
   // Update current time every minute
   useEffect(() => {
     const timer = setInterval(() => {
@@ -272,7 +272,6 @@ const Dashboard: React.FC = () => {
     setSelectedTimeSlot(null);
     setSelectedRoute(newRoutes.find(route => route.isBest) || null);
     setPriceLockInfo(null);
-    setShowPriceLock(false);
   }, [selectedDate]);
   
   // Update price lock info when time slot or route changes
@@ -309,12 +308,8 @@ const Dashboard: React.FC = () => {
           savingsPercent: newPriceLockInfo.savingsPercent
         });
       }
-      
-      // Always show price lock when a time slot is selected
-      setShowPriceLock(true);
     } else {
       // Hide price lock when no time slot is selected
-      setShowPriceLock(false);
       setPriceLockInfo(null);
     }
   }, [selectedTimeSlot, selectedRoute, timelineData, routes]);
@@ -328,33 +323,24 @@ const Dashboard: React.FC = () => {
   const handleTimeSlotSelect = (timeSlot: TimeSlot | null) => {
     setSelectedTimeSlot(timeSlot);
     
-    if (timeSlot) {
-      // If no route is selected, select the best route by default
-      if (!selectedRoute) {
-        const bestRoute = routes.find(route => route.isBest);
-        if (bestRoute) {
-          setSelectedRoute(bestRoute);
-        }
+    if (!timeSlot && !selectedRoute) {
+      const bestRoute = routes.find(route => route.isBest);
+      if (bestRoute) {
+        setSelectedRoute(bestRoute);
       }
-      
-      // Ensure showPriceLock is set to true when a time slot is selected
-      setShowPriceLock(true);
-    } else {
-      // If timeSlot is null, hide the price lock
-      setShowPriceLock(false);
     }
   };
   
   // Format current time for display
   const formattedCurrentTime = format(currentTime, 'h:mm a');
   
-  // Convert timeline data to the format expected by SurgeTimeline
-  const surgePredictions = convertToSurgePredictions(timelineData, selectedDate);
-  
   // Get the current hour's surge for CurrentStatusCard
   const currentHour = currentTime.getHours();
   const currentSurgeData = timelineData.find(item => item.hour === currentHour);
   const currentSurge = currentSurgeData?.surge || 1.0;
+  
+  // Convert timeline data to the format expected by SurgeTimeline
+  const surgePredictions = convertToSurgePredictions(timelineData, selectedDate);
   
   // Define theme colors
   const theme = {
@@ -376,127 +362,104 @@ const Dashboard: React.FC = () => {
     <div className={css({
       padding: '24px',
       backgroundColor: theme.background,
-      minHeight: '100vh',
-      color: theme.textPrimary,
-      fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+      minHeight: '100vh'
     })}>
-
       <div className={css({
-        maxWidth: '1200px',
-        margin: '0 auto'
+        marginBottom: '24px',
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center'
       })}>
-        {/* Header */}
+        <HeadingLarge
+          overrides={{
+            Block: {
+              style: {
+                color: theme.secondary,
+                margin: 0
+              }
+            }
+          }}
+        >
+          Surge Predictor
+        </HeadingLarge>
+        
         <div className={css({
-          marginBottom: '32px',
+          backgroundColor: 'white',
+          padding: '8px 16px',
+          borderRadius: '24px',
+          boxShadow: theme.shadow,
           display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center'
+          alignItems: 'center',
+          fontWeight: '500'
         })}>
-          <div>
-            <HeadingLarge 
-              overrides={{
-                Block: {
-                  style: {
-                    color: theme.secondary,
-                    fontWeight: '700',
-                    margin: 0,
-                    fontSize: '32px'
-                  }
-                }
-              }}
-            >
-              Uber Surge Prediction
-            </HeadingLarge>
-            <p className={css({
-              fontSize: '16px',
-              color: theme.textSecondary,
-              margin: '8px 0 0 0',
-              fontWeight: '500'
-            })}>
-              {format(selectedDate, 'EEEE, MMMM d, yyyy')}
-            </p>
+          <div className={css({
+            width: '10px',
+            height: '10px',
+            borderRadius: '50%',
+            backgroundColor: theme.success,
+            marginRight: '10px'
+          })}></div>
+          Live: {formattedCurrentTime}
+        </div>
+      </div>
+      
+      <Grid>
+        {/* Left column - Calendar and Status */}
+        <Cell span={[4, 8, 4]}>
+          <div className={css({ marginBottom: '24px' })}>
+            <DateSelector selectedDate={selectedDate} onDateChange={setSelectedDate} />
           </div>
           
+          <div className={css({ marginBottom: '24px' })}>
+            <CurrentStatusCard 
+              selectedDate={selectedDate} 
+              currentSurge={currentSurge} 
+            />
+          </div>
+        </Cell>
+        
+        {/* Right column - Surge Timeline */}
+        <Cell span={[4, 8, 8]}>
           <div className={css({
-            fontSize: '16px',
-            color: theme.textSecondary,
-            backgroundColor: theme.cardBackground,
-            padding: '10px 20px',
-            borderRadius: '24px',
-            boxShadow: theme.shadow,
-            display: 'flex',
-            alignItems: 'center',
-            fontWeight: '500'
+            backgroundColor: 'white',
+            borderRadius: '8px',
+            boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
+            overflow: 'hidden'
           })}>
             <div className={css({
-              width: '10px',
-              height: '10px',
-              borderRadius: '50%',
-              backgroundColor: theme.success,
-              marginRight: '10px'
-            })}></div>
-            Live: {formattedCurrentTime}
-          </div>
-        </div>
-        
-        <Grid>
-          {/* Left column - Calendar and Status */}
-          <Cell span={[4, 8, 4]}>
-            <div className={css({ marginBottom: '24px' })}>
-              <DateSelector selectedDate={selectedDate} onDateChange={setSelectedDate} />
-            </div>
-            
-            <div className={css({ marginBottom: '24px' })}>
-              <CurrentStatusCard 
-                selectedDate={selectedDate} 
-                currentSurge={currentSurge} 
-              />
-            </div>
-          </Cell>
-          
-          {/* Right column - Surge Timeline */}
-          <Cell span={[4, 8, 8]}>
-            <div className={css({
-              backgroundColor: 'white',
-              borderRadius: '8px',
-              boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
-              overflow: 'hidden'
+              padding: '16px 16px 0 16px'
             })}>
-              <div className={css({
-                padding: '16px 16px 0 16px'
-              })}>
-                {/* Removing the duplicate title and subtitle */}
-              </div>
-              <div className={css({ padding: '16px' })}>
-                <SurgeTimeline 
-                  routeId="default-route" 
-                  initialData={surgePredictions} 
-                  hideDatePicker={true}
-                />
-              </div>
+              {/* Removing the duplicate title and subtitle */}
             </div>
-            
-            <div className={css({ marginTop: '24px' })}>
-              <AlternativeRoutesCard 
-                routes={routes} 
-                onSelectRoute={handleRouteSelect}
-                selectedRouteId={selectedRoute?.route}
+            <div className={css({ padding: '16px' })}>
+              <SurgeTimeline 
+                routeId="default-route" 
+                initialData={surgePredictions} 
+                hideDatePicker={true}
               />
             </div>
-          </Cell>
+          </div>
           
-          {/* Bottom row */}
-          <Cell span={[4, 8, 12]}>
-            <div className={css({ marginTop: '24px' })}>
-              <TimeSlotsCard 
-                timeSlots={timeSlots} 
-                selectedTimeSlot={selectedTimeSlot} 
-                onSelectTimeSlot={handleTimeSlotSelect}
-              />
-            </div>
-          </Cell>
-        </Grid>
-      </div>
+          <div className={css({ marginTop: '24px' })}>
+            <AlternativeRoutesCard 
+              routes={routes} 
+              onSelectRoute={handleRouteSelect}
+              selectedRouteId={selectedRoute?.route}
+            />
+          </div>
+        </Cell>
+        
+        {/* Bottom row */}
+        <Cell span={[4, 8, 12]}>
+          <div className={css({ marginTop: '24px' })}>
+            <TimeSlotsCard 
+              timeSlots={timeSlots} 
+              selectedTimeSlot={selectedTimeSlot} 
+              onSelectTimeSlot={handleTimeSlotSelect}
+            />
+          </div>
+        </Cell>
+      </Grid>
       
       {/* Price Lock Status Bar - Always visible */}
       <PriceLockStatusBar 
