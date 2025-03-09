@@ -2,48 +2,57 @@
  * Utility functions to generate mock data for the surge prediction components
  */
 
+import { format } from 'date-fns';
+
 /**
  * Generate mock timeline data for surge prediction
  * @param date The date to generate data for
  * @returns Array of data points with time and surge values
  */
 export const generateMockTimelineData = (date: Date) => {
-  // Use the date to seed some randomness
-  const dateNum = date.getDate() + date.getMonth() * 31;
   const isWeekend = date.getDay() === 0 || date.getDay() === 6;
-  const isHoliday = dateNum % 10 === 0; // Every 10th day is a "holiday"
+  const data = [];
   
-  // Base multiplier is higher on weekends and holidays
-  const baseMultiplier = isWeekend ? 1.3 : isHoliday ? 1.5 : 1.0;
-  
-  return Array.from({ length: 24 }, (_, i) => {
-    // Morning rush (7-9 AM)
-    const morningRush = (i >= 7 && i <= 9) ? 0.5 : 0;
-    // Evening rush (4-7 PM)
-    const eveningRush = (i >= 16 && i <= 19) ? 0.7 : 0;
-    // Late night (10 PM - 2 AM)
-    const lateNight = (i >= 22 || i <= 2) ? 0.4 : 0;
+  for (let hour = 0; hour < 24; hour++) {
+    // Base surge multiplier
+    let surge = 1.0;
     
-    // Calculate surge based on time of day
-    const timeBasedSurge = morningRush + eveningRush + lateNight;
-    
+    // Morning rush hour (7-9 AM)
+    if (hour >= 7 && hour <= 9 && !isWeekend) {
+      surge = 1.5 + Math.random() * 0.5;
+    }
+    // Evening rush hour (4-7 PM)
+    else if (hour >= 16 && hour <= 19 && !isWeekend) {
+      surge = 1.7 + Math.random() * 0.8;
+    }
+    // Weekend evening surge (6-10 PM)
+    else if (hour >= 18 && hour <= 22 && isWeekend) {
+      surge = 1.4 + Math.random() * 0.6;
+    }
+    // Late night (11 PM - 2 AM)
+    else if (hour >= 23 || hour <= 2) {
+      surge = 1.2 + Math.random() * 0.4;
+    }
     // Add some randomness
-    const randomFactor = Math.sin(i / 3 + dateNum) * 0.3;
+    surge += (Math.random() - 0.5) * 0.2;
+    surge = Math.max(1.0, Math.round(surge * 10) / 10);
     
-    // Calculate final surge value
-    const surge = Math.max(1.0, baseMultiplier + timeBasedSurge + randomFactor);
+    // Format the time
+    const timeDate = new Date(date);
+    timeDate.setHours(hour, 0, 0, 0);
+    const time = `${hour}:00`;
+    const formattedTime = format(timeDate, 'h a');
     
-    // Calculate confidence (higher during predictable times)
-    const confidence = 70 + (morningRush || eveningRush ? 20 : 0) - Math.abs(randomFactor) * 30;
-    
-    return {
-      hour: i,
-      time: `${i}:00`,
-      formattedTime: `${i % 12 === 0 ? 12 : i % 12}:00 ${i < 12 ? 'AM' : 'PM'}`,
-      surge: parseFloat(surge.toFixed(2)),
-      confidence: Math.round(confidence)
-    };
-  });
+    data.push({
+      hour,
+      time,
+      formattedTime,
+      surge,
+      confidence: 0.7 + Math.random() * 0.3
+    });
+  }
+  
+  return data;
 };
 
 /**
@@ -52,37 +61,31 @@ export const generateMockTimelineData = (date: Date) => {
  * @returns Array of route options with time and price information
  */
 export const generateMockRoutes = (date: Date) => {
-  // Use the date to seed some randomness
-  const dateNum = date.getDate() + date.getMonth() * 31;
   const isWeekend = date.getDay() === 0 || date.getDay() === 6;
   
-  // Base time and price
-  const baseTime = isWeekend ? 18 : 22;
-  const basePrice = isWeekend ? 22.50 : 28.75;
-  
   return [
-    { 
-      route: 'Via Main St', 
-      time: baseTime, 
-      diff: '+0', 
-      price: basePrice.toFixed(2),
-      savings: '0.00',
+    {
+      route: 'Main St → Downtown',
+      time: 15 + (isWeekend ? 2 : 5),
+      diff: isWeekend ? '+2' : '+5',
+      price: `$${(12 + (isWeekend ? 1 : 3)).toFixed(2)}`,
+      savings: `$${(isWeekend ? 0.5 : 2).toFixed(2)}`,
       isBest: true
     },
-    { 
-      route: 'Via 5th Ave', 
-      time: baseTime + 3, 
-      diff: '+3', 
-      price: (basePrice * 0.85).toFixed(2),
-      savings: (basePrice * 0.15).toFixed(2),
+    {
+      route: 'Highway 101',
+      time: 12,
+      diff: '+0',
+      price: `$${(15 + (isWeekend ? 1 : 4)).toFixed(2)}`,
+      savings: '',
       isBest: false
     },
-    { 
-      route: 'Via Broadway', 
-      time: baseTime + 6, 
-      diff: '+6', 
-      price: (basePrice * 0.75).toFixed(2),
-      savings: (basePrice * 0.25).toFixed(2),
+    {
+      route: 'Coastal Route',
+      time: 22,
+      diff: '+10',
+      price: `$${(10 + (isWeekend ? 0.5 : 2)).toFixed(2)}`,
+      savings: `$${(isWeekend ? 1.5 : 5).toFixed(2)}`,
       isBest: false
     }
   ];
@@ -94,17 +97,48 @@ export const generateMockRoutes = (date: Date) => {
  * @returns Array of time slots with surge values
  */
 export const generateTimeSlots = (date: Date) => {
-  const currentHour = date.getHours();
-  const startHour = Math.max(currentHour, 6); // Start at 6 AM or current hour, whichever is later
-  
   const slots = [];
+  const now = new Date();
+  const startHour = date.getDate() === now.getDate() ? Math.max(now.getHours(), 6) : 6;
+  
+  // Generate time slots for the next 4 hours, in 30-minute increments
   for (let hour = startHour; hour < startHour + 4; hour++) {
-    for (let minute = 0; minute < 60; minute += 15) {
+    for (let minute of [0, 30]) {
+      // Skip past times
+      if (date.getDate() === now.getDate() && 
+          hour === now.getHours() && 
+          minute <= now.getMinutes()) {
+        continue;
+      }
+      
+      // Generate a surge value based on time of day
+      let surge = 1.0;
+      
+      // Morning rush (7-9 AM)
+      if (hour >= 7 && hour <= 9) {
+        surge = 1.3 + Math.random() * 0.4;
+      }
+      // Evening rush (4-7 PM)
+      else if (hour >= 16 && hour <= 19) {
+        surge = 1.5 + Math.random() * 0.7;
+      }
+      // Late night (10 PM - 2 AM)
+      else if (hour >= 22 || hour <= 2) {
+        surge = 1.2 + Math.random() * 0.3;
+      }
+      
+      // Add some randomness
+      surge += (Math.random() - 0.5) * 0.2;
+      surge = Math.max(1.0, Math.round(surge * 10) / 10);
+      
+      // Format the time
+      const timeString = `${hour % 12 || 12}:${minute === 0 ? '00' : minute} ${hour >= 12 ? 'PM' : 'AM'}`;
+      
       slots.push({
         hour,
         minute,
-        time: `${hour % 12 === 0 ? 12 : hour % 12}:${minute === 0 ? '00' : minute} ${hour < 12 ? 'AM' : 'PM'}`,
-        surge: 1 + Math.sin((hour + minute/60) / 3) * 0.5
+        time: timeString,
+        surge
       });
     }
   }
@@ -118,15 +152,19 @@ export const generateTimeSlots = (date: Date) => {
  * @returns Object with locked price, projected peak, and savings percentage
  */
 export const calculatePriceLockSavings = (timelineData: any[]) => {
-  const basePrice = 25.00;
-  const projectedPeak = basePrice * (Math.max(...timelineData.map(item => item.surge)) || 1.5);
-  const lockedPrice = basePrice * 1.1; // 10% above base
-  const savingsPercent = Math.round(((projectedPeak - lockedPrice) / projectedPeak) * 100);
+  // Find the peak surge in the timeline data
+  const peakSurge = Math.max(...timelineData.map(item => item.surge));
+  
+  // Calculate a locked price (slightly above current, but below peak)
+  const currentSurge = timelineData[0]?.surge || 1.0;
+  const lockedPrice = currentSurge * 1.1;
+  
+  // Calculate savings percentage
+  const savingsPercent = Math.round((peakSurge - lockedPrice) / peakSurge * 100);
   
   return {
-    basePrice,
-    projectedPeak,
     lockedPrice,
-    savingsPercent
+    projectedPeak: peakSurge,
+    savingsPercent: Math.max(0, savingsPercent)
   };
 }; 

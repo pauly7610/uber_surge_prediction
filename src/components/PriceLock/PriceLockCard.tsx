@@ -1,167 +1,172 @@
-import React, { useState, useEffect } from 'react';
-import { useMutation } from '@apollo/client';
-import CardWrapper from '../common/CardWrapper';
-import Button from '../common/Button';
-import { ParagraphSmall, HeadingMedium } from 'baseui/typography';
-import { LOCK_SURGE_PRICE } from '../../graphql/mutations';
-import { useSurgeData } from '../../hooks/useSurgeData';
-import { Notification } from 'baseui/notification';
+import React, { useState } from 'react';
 import { useStyletron } from 'baseui';
-import { Check, Alert } from 'baseui/icon';
+import { Button } from 'baseui/button';
+import { ParagraphSmall, HeadingMedium } from 'baseui/typography';
 import { ProgressBar } from 'baseui/progress-bar';
+import { Tag } from 'baseui/tag';
+import CardWrapper from '../common/CardWrapper';
 
-const PriceLockCard: React.FC = () => {
+interface PriceLockCardProps {
+  currentPrice: number;
+  projectedPeak: number;
+  timeRemaining: number;
+  onLockPrice: () => void;
+}
+
+const PriceLockCard: React.FC<PriceLockCardProps> = ({
+  currentPrice,
+  projectedPeak,
+  timeRemaining,
+  onLockPrice
+}) => {
   const [css] = useStyletron();
-  const [lockPrice, { loading, error }] = useMutation(LOCK_SURGE_PRICE);
-  const { surgeData, loading: surgeLoading } = useSurgeData();
-  const [locked, setLocked] = useState(false);
-  const [timeLeft, setTimeLeft] = useState(300); // 5 minutes in seconds
-
-  const handleLock = async () => {
-    if (surgeData) {
-      try {
-        await lockPrice({ variables: { multiplier: surgeData.multiplier } });
-        setLocked(true);
-        
-        // Start countdown
-        const interval = setInterval(() => {
-          setTimeLeft(prev => {
-            if (prev <= 1) {
-              clearInterval(interval);
-              setLocked(false);
-              return 0;
-            }
-            return prev - 1;
-          });
-        }, 1000);
-        
-        // Clean up interval
-        return () => clearInterval(interval);
-      } catch (err) {
-        console.error('Error locking price:', err);
-      }
-    }
+  const [isLocked, setIsLocked] = useState(false);
+  
+  // Calculate savings
+  const savings = projectedPeak - currentPrice;
+  const savingsPercent = Math.round((savings / projectedPeak) * 100);
+  
+  // Format prices
+  const formattedCurrentPrice = `$${currentPrice.toFixed(2)}`;
+  const formattedProjectedPeak = `$${projectedPeak.toFixed(2)}`;
+  const formattedSavings = `$${savings.toFixed(2)}`;
+  
+  // Format time remaining
+  const formatTimeRemaining = (minutes: number) => {
+    if (minutes < 1) return 'Less than a minute';
+    if (minutes === 1) return '1 minute';
+    return `${minutes} minutes`;
   };
   
-  const formatTimeLeft = () => {
-    const minutes = Math.floor(timeLeft / 60);
-    const seconds = timeLeft % 60;
-    return `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
+  const handleLockPrice = () => {
+    setIsLocked(true);
+    onLockPrice();
   };
-
+  
   return (
-    <CardWrapper 
-      title="Price Lock" 
-      subtitle="Lock in the current surge price for 5 minutes"
-    >
+    <CardWrapper title="Price Lock">
       <div className={css({
-        backgroundColor: 'rgba(39, 110, 241, 0.1)',
-        borderRadius: '8px',
-        padding: '16px',
-        marginBottom: '16px',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '16px'
       })}>
-        {locked ? (
-          <div>
+        {isLocked ? (
+          <div className={css({
+            backgroundColor: 'rgba(16, 185, 129, 0.1)',
+            borderRadius: '8px',
+            padding: '16px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '8px'
+          })}>
+            <HeadingMedium $style={{
+              margin: 0,
+              color: '#047857',
+              fontSize: '18px'
+            }}>
+              Price Locked!
+            </HeadingMedium>
+            
+            <ParagraphSmall $style={{ margin: 0 }}>
+              You've locked in a price of {formattedCurrentPrice} for your trip.
+              This price is guaranteed for the next {formatTimeRemaining(timeRemaining)}.
+            </ParagraphSmall>
+            
             <div className={css({
               display: 'flex',
               alignItems: 'center',
-              marginBottom: '16px',
-              backgroundColor: 'rgba(6, 193, 103, 0.1)',
-              padding: '12px',
-              borderRadius: '8px'
+              gap: '8px',
+              marginTop: '8px'
             })}>
-              <Check size={24} color="var(--success)" />
-              <ParagraphSmall $style={{ 
-                marginLeft: '12px',
-                color: 'var(--success)',
-                fontWeight: 'bold'
-              }}>
-                Price locked successfully!
+              <Tag kind="positive" closeable={false}>
+                Save {savingsPercent}%
+              </Tag>
+              <ParagraphSmall $style={{ margin: 0 }}>
+                vs. projected peak of {formattedProjectedPeak}
               </ParagraphSmall>
             </div>
+          </div>
+        ) : (
+          <>
+            <div className={css({
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'flex-end'
+            })}>
+              <div>
+                <ParagraphSmall $style={{ margin: '0 0 4px 0', color: '#666' }}>
+                  Current Price
+                </ParagraphSmall>
+                <HeadingMedium $style={{
+                  margin: 0,
+                  fontSize: '24px'
+                }}>
+                  {formattedCurrentPrice}
+                </HeadingMedium>
+              </div>
+              
+              <div className={css({ textAlign: 'right' })}>
+                <ParagraphSmall $style={{ margin: '0 0 4px 0', color: '#666' }}>
+                  Projected Peak
+                </ParagraphSmall>
+                <HeadingMedium $style={{
+                  margin: 0,
+                  fontSize: '18px',
+                  color: '#EF4444'
+                }}>
+                  {formattedProjectedPeak}
+                </HeadingMedium>
+              </div>
+            </div>
             
-            <div className={css({ marginBottom: '16px' })}>
-              <ParagraphSmall>
-                Time remaining:
-              </ParagraphSmall>
-              <HeadingMedium $style={{ 
-                margin: '8px 0',
-                color: timeLeft < 60 ? 'var(--warning)' : 'var(--dark-gray)'
-              }}>
-                {formatTimeLeft()}
-              </HeadingMedium>
-              <ProgressBar 
-                value={timeLeft} 
-                successValue={300}
+            <div>
+              <div className={css({
+                display: 'flex',
+                justifyContent: 'space-between',
+                marginBottom: '8px'
+              })}>
+                <ParagraphSmall $style={{ margin: 0 }}>
+                  Potential Savings
+                </ParagraphSmall>
+                <ParagraphSmall $style={{ margin: 0, fontWeight: 'bold', color: '#10B981' }}>
+                  {formattedSavings} ({savingsPercent}%)
+                </ParagraphSmall>
+              </div>
+              <ProgressBar
+                value={savingsPercent}
+                successValue={100}
                 overrides={{
                   BarProgress: {
                     style: {
-                      backgroundColor: timeLeft < 60 ? 'var(--warning)' : 'var(--success)'
+                      backgroundColor: '#10B981'
                     }
                   }
                 }}
               />
             </div>
             
-            <div className={css({
-              backgroundColor: 'var(--uber-white)',
-              padding: '16px',
-              borderRadius: '8px',
-              textAlign: 'center'
-            })}>
-              <HeadingMedium $style={{ margin: '0 0 8px 0' }}>
-                {surgeData?.multiplier.toFixed(1)}x
-              </HeadingMedium>
-              <ParagraphSmall>
-                Locked Surge Multiplier
+            <div>
+              <ParagraphSmall $style={{ margin: '0 0 16px 0' }}>
+                Lock in the current price now to avoid surge pricing later.
+                This price will be guaranteed for the next {formatTimeRemaining(timeRemaining)}.
               </ParagraphSmall>
+              
+              <Button
+                onClick={handleLockPrice}
+                overrides={{
+                  BaseButton: {
+                    style: {
+                      width: '100%'
+                    }
+                  }
+                }}
+              >
+                Lock Price at {formattedCurrentPrice}
+              </Button>
             </div>
-          </div>
-        ) : (
-          <div>
-            <div className={css({
-              display: 'flex',
-              justifyContent: 'center',
-              alignItems: 'center',
-              flexDirection: 'column',
-              marginBottom: '24px'
-            })}>
-              <HeadingMedium $style={{ 
-                margin: '0 0 8px 0',
-                color: surgeData?.multiplier && surgeData.multiplier > 1.5 ? 'var(--high-demand)' : 'var(--dark-gray)'
-              }}>
-                {surgeLoading ? '...' : surgeData ? `${surgeData.multiplier.toFixed(1)}x` : 'N/A'}
-              </HeadingMedium>
-              <ParagraphSmall>
-                Current Surge Multiplier
-              </ParagraphSmall>
-            </div>
-            
-            <ParagraphSmall $style={{ 
-              marginBottom: '16px',
-              color: 'var(--uber-blue)',
-              textAlign: 'center'
-            }}>
-              Lock in standard rates for your evening commute before prices increase.
-            </ParagraphSmall>
-            
-            <Button 
-              variant="primary" 
-              fullWidth
-              onClick={handleLock}
-              disabled={loading || !surgeData}
-            >
-              {loading ? 'Locking...' : 'Lock Price for 5 Minutes'}
-            </Button>
-          </div>
+          </>
         )}
       </div>
-      
-      {error && (
-        <Notification kind="negative" closeable>
-          Error locking price: {error.message}
-        </Notification>
-      )}
     </CardWrapper>
   );
 };

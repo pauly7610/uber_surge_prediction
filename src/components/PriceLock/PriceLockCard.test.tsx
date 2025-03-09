@@ -1,9 +1,8 @@
 import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import { MockedProvider } from '@apollo/client/testing';
 import PriceLockCard from './PriceLockCard';
 import { LOCK_SURGE_PRICE } from '../../graphql/mutations';
-import { GET_SURGE_DATA } from '../../graphql/queries';
 
 // Mock the useSurgeData hook
 jest.mock('../../hooks/useSurgeData', () => ({
@@ -32,31 +31,46 @@ const mocks = [
 ];
 
 describe('PriceLockCard', () => {
+  const mockProps = {
+    currentPrice: 25.50,
+    projectedPeak: 35.75,
+    timeRemaining: 30,
+    onLockPrice: jest.fn()
+  };
+
   it('renders the component with surge data', () => {
     render(
       <MockedProvider mocks={mocks} addTypename={false}>
-        <PriceLockCard />
+        <PriceLockCard 
+          currentPrice={mockProps.currentPrice}
+          projectedPeak={mockProps.projectedPeak}
+          timeRemaining={mockProps.timeRemaining}
+          onLockPrice={mockProps.onLockPrice}
+        />
       </MockedProvider>
     );
     
-    expect(screen.getByText('Lock Current Price')).toBeInTheDocument();
-    expect(screen.getByText('Current Multiplier: 1.8x')).toBeInTheDocument();
-    expect(screen.getByText('Lock Price for 5 Minutes')).toBeInTheDocument();
+    expect(screen.getByText(/Lock Current Price/i)).toBeInTheDocument();
+    expect(screen.getByText(/\$25.50/)).toBeInTheDocument();
+    expect(screen.getByText(/\$35.75/)).toBeInTheDocument();
   });
 
   it('locks the price when button is clicked', async () => {
     render(
       <MockedProvider mocks={mocks} addTypename={false}>
-        <PriceLockCard />
+        <PriceLockCard 
+          currentPrice={mockProps.currentPrice}
+          projectedPeak={mockProps.projectedPeak}
+          timeRemaining={mockProps.timeRemaining}
+          onLockPrice={mockProps.onLockPrice}
+        />
       </MockedProvider>
     );
     
     // Click the lock button
-    fireEvent.click(screen.getByText('Lock Price for 5 Minutes'));
+    fireEvent.click(screen.getByText(/Lock Price/i));
     
-    // Wait for the success message
-    await waitFor(() => {
-      expect(screen.getByText(/Price locked at 1.8x for/)).toBeInTheDocument();
-    });
+    // Verify onLockPrice was called
+    expect(mockProps.onLockPrice).toHaveBeenCalled();
   });
 }); 

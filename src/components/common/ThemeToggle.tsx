@@ -1,8 +1,7 @@
 import React from 'react';
 import { useStyletron } from 'baseui';
 import { Button } from 'baseui/button';
-import { LightTheme, DarkTheme } from 'baseui';
-import { Overflow as Sun, Delete as Moon } from 'baseui/icon';
+import { DarkTheme } from 'baseui';
 import { useTheme } from '../../context/ThemeContext';
 
 // SVG icons for better accessibility
@@ -19,10 +18,10 @@ const MoonIcon = () => (
 );
 
 const ThemeToggle: React.FC = () => {
-  const [css] = useStyletron();
-  const { theme, toggleTheme } = useTheme();
+  const [,] = useStyletron();
+  const { theme: appTheme, toggleTheme } = useTheme();
   
-  const isDark = theme === DarkTheme;
+  const isDark = appTheme === DarkTheme;
   
   return (
     <Button

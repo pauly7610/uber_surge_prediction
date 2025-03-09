@@ -28,49 +28,15 @@ const DriverSurgeTimeline: React.FC<DriverSurgeTimelineProps> = ({ initialData }
       label: `${hours}:${minutes < 10 ? '0' + minutes : minutes}`
     };
   });
-
+  
   return (
-    <CardWrapper 
-      title="Surge Forecast"
-      subtitle="View predicted surge pricing over time"
-    >
-      <div style={{ 
-        backgroundColor: 'rgba(39, 110, 241, 0.1)',
-        color: '#276EF1',
-        padding: '12px 16px',
-        borderRadius: '8px',
-        marginBottom: '16px',
-        display: 'flex',
-        alignItems: 'center',
-        fontSize: '14px'
-      }}>
-        <div style={{
-          marginRight: '12px',
-          width: '24px',
-          height: '24px',
-          borderRadius: '50%',
-          backgroundColor: '#276EF1',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          color: 'white',
-          fontWeight: 'bold',
-        }}>
-          i
-        </div>
-        Price Lock Available: Lock in standard rates for your evening commute before prices increase.
-      </div>
-      
-      <div style={{
-        position: 'relative',
-        minHeight: '300px',
-        marginTop: '20px',
-        backgroundColor: 'rgba(39, 110, 241, 0.05)',
-        borderRadius: '8px',
-        padding: '16px',
-        border: '1px solid rgba(39, 110, 241, 0.1)',
-      }}>
-        <ResponsiveContainer width="100%" height={300}>
+    <CardWrapper title="Surge Timeline">
+      <div className={css({
+        height: '300px',
+        width: '100%',
+        marginBottom: '16px'
+      })}>
+        <ResponsiveContainer width="100%" height="100%">
           <AreaChart
             data={formattedChartData}
             margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
@@ -102,6 +68,13 @@ const DriverSurgeTimeline: React.FC<DriverSurgeTimelineProps> = ({ initialData }
             />
           </AreaChart>
         </ResponsiveContainer>
+      </div>
+      <div className={css({
+        fontSize: '14px',
+        color: '#666',
+        textAlign: 'center'
+      })}>
+        Predicted surge pricing throughout the day
       </div>
     </CardWrapper>
   );

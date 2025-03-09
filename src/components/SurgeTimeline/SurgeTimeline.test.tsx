@@ -3,7 +3,6 @@ import { render, screen, waitFor } from '@testing-library/react';
 import { MockedProvider } from '@apollo/client/testing';
 import SurgeTimeline from './SurgeTimeline';
 import { GET_HISTORICAL_SURGE_DATA } from '../../graphql/queries';
-import { SURGE_UPDATE_SUBSCRIPTION } from '../../graphql/subscriptions';
 
 // Mock the DateRangePicker component since it's complex to test
 jest.mock('react-date-range', () => ({
