@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { AreaChart, XAxis, YAxis, Tooltip, Area, ResponsiveContainer } from 'recharts';
 import CardWrapper from '../common/CardWrapper';
 import { DateRangePicker } from 'react-date-range';
-import { HeadingMedium } from 'baseui/typography';
 import { useStyletron } from 'baseui';
 import { enUS } from 'date-fns/locale';
 import 'react-date-range/dist/styles.css';

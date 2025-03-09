@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Grid, Cell } from 'baseui/layout-grid';
 import { HeadingLarge } from 'baseui/typography';
 import DriverHeatmap from '../components/Driver/DriverHeatmap';
@@ -21,46 +21,46 @@ const DriverDashboard: React.FC = () => {
   const [heatmapDate, setHeatmapDate] = useState<Date>(new Date());
   const [isOnMobile, setIsOnMobile] = useState(false);
   
-  // Base data patterns for different days
-  const patterns = {
+  // Define the period type for type safety
+  type PeriodType = 'morning' | 'afternoon' | 'evening';
+  
+  // Memoize the patterns object
+  const patterns = useMemo(() => ({
     weekday: {
       morning: [1.2, 1.5, 1.8, 1.6, 1.4],
       afternoon: [1.3, 1.4, 1.6, 1.9, 2.1],
       evening: [1.7, 2.0, 2.3, 2.1, 1.8]
     },
     weekend: {
-      morning: [1.1, 1.2, 1.3, 1.4, 1.3],
-      afternoon: [1.5, 1.7, 1.9, 1.8, 1.6],
-      evening: [1.8, 2.1, 2.4, 2.2, 1.9]
+      morning: [1.0, 1.1, 1.3, 1.5, 1.4],
+      afternoon: [1.4, 1.6, 1.8, 1.7, 1.5],
+      evening: [1.9, 2.2, 2.5, 2.3, 2.0]
     },
     holiday: {
-      morning: [1.3, 1.6, 1.9, 1.7, 1.5],
-      afternoon: [1.7, 1.9, 2.1, 2.0, 1.8],
-      evening: [2.2, 2.5, 2.7, 2.5, 2.2]
-    },
-    rainy: {
-      morning: [1.5, 1.8, 2.0, 1.9, 1.7],
-      afternoon: [2.0, 2.2, 2.4, 2.3, 2.1],
-      evening: [2.5, 2.8, 3.0, 2.8, 2.5]
+      morning: [1.1, 1.2, 1.4, 1.6, 1.5],
+      afternoon: [1.5, 1.7, 1.9, 1.8, 1.6],
+      evening: [2.0, 2.3, 2.6, 2.4, 2.1]
     }
-  };
+  }), []);
   
-  // Generate data for a specific date
-  const generateDataForDate = (date: Date) => {
+  // Function to generate data for a specific date
+  const generateDataForDate = useCallback((date: Date) => {
     // Use the date to seed randomness
     const dateNum = date.getDate() + date.getMonth() * 31;
-    const isWeekend = date.getDay() === 0 || date.getDay() === 6;
+    const day = date.getDay();
+    const isWeekend = day === 0 || day === 6;
     const isHoliday = dateNum % 10 === 0; // Every 10th day is a "holiday"
-    const isRainy = dateNum % 7 === 0; // Every 7th day is "rainy"
     
-    // Select pattern based on date characteristics
+    // Determine which pattern to use
     let patternType;
-    if (isRainy) patternType = patterns.rainy;
-    else if (isHoliday) patternType = patterns.holiday;
-    else if (isWeekend) patternType = patterns.weekend;
-    else patternType = patterns.weekday;
+    if (isHoliday) {
+      patternType = patterns.holiday;
+    } else if (isWeekend) {
+      patternType = patterns.weekend;
+    } else {
+      patternType = patterns.weekday;
+    }
     
-    // Generate data for the selected date
     const result = [];
     
     // Morning data (8 AM - 12 PM)
@@ -118,14 +118,14 @@ const DriverDashboard: React.FC = () => {
     }
     
     return result;
-  };
+  }, [patterns]);
   
-  // Function to get data for the selected date
-  const getDataForDate = (date: Date) => {
-    // Generate data for the selected date
-    const dateData = generateDataForDate(date);
+  // Function to get data for the selected date - wrapped in useCallback
+  const getDataForDate = useCallback((date: Date) => {
+    // No need to store the result if we're not using it
+    generateDataForDate(date);
     
-    // Return the data for the current time of day
+    // Rest of the function implementation that determines time period, etc.
     const currentHour = new Date().getHours();
     let timeIndex;
     
@@ -143,7 +143,7 @@ const DriverDashboard: React.FC = () => {
     if (timeIndex < 0) timeIndex = 0;
     
     // Find the appropriate time period
-    let period;
+    let period: PeriodType;
     if (currentHour >= 8 && currentHour < 13) {
       period = 'morning';
     } else if (currentHour >= 13 && currentHour < 18) {
@@ -152,12 +152,26 @@ const DriverDashboard: React.FC = () => {
       period = 'evening';
     }
     
+    // Get the pattern type based on the date
+    const day = date.getDay();
+    const isWeekend = day === 0 || day === 6;
+    const isHoliday = date.getDate() % 10 === 0; // Every 10th day is a "holiday"
+    
+    // Select pattern based on date characteristics
+    let patternType;
+    if (isHoliday) patternType = patterns.holiday;
+    else if (isWeekend) patternType = patterns.weekend;
+    else patternType = patterns.weekday;
+    
+    // Return the current data point
     return {
-      currentMultiplier: dateData[timeIndex]?.multiplier || 1.0,
+      timestamp: new Date().toISOString(),
+      multiplier: patternType[period][timeIndex],
       period,
-      data: dateData
+      isWeekend,
+      isHoliday
     };
-  };
+  }, [generateDataForDate, patterns]);
   
   // Update data when selected date changes
   useEffect(() => {
@@ -211,7 +225,7 @@ const DriverDashboard: React.FC = () => {
     
     // Update heatmap date
     setHeatmapDate(selectedDate);
-  }, [selectedDate, getDataForDate]);
+  }, [selectedDate, getDataForDate, generateDataForDate]);
   
   // Calendar navigation functions
   const nextMonth = () => {

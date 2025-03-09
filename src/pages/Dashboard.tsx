@@ -357,7 +357,7 @@ const Dashboard: React.FC = () => {
     shadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
     background: '#F7F8FA'
   };
-  
+
   return (
     <div className={css({
       padding: '24px',
@@ -438,15 +438,15 @@ const Dashboard: React.FC = () => {
                 hideDatePicker={true}
               />
             </div>
-          </div>
-          
+              </div>
+              
           <div className={css({ marginTop: '24px' })}>
             <AlternativeRoutesCard 
               routes={routes} 
               onSelectRoute={handleRouteSelect}
               selectedRouteId={selectedRoute?.route}
             />
-          </div>
+              </div>
         </Cell>
         
         {/* Bottom row */}
@@ -457,7 +457,7 @@ const Dashboard: React.FC = () => {
               selectedTimeSlot={selectedTimeSlot} 
               onSelectTimeSlot={handleTimeSlotSelect}
             />
-          </div>
+            </div>
         </Cell>
       </Grid>
       
@@ -474,4 +474,4 @@ const Dashboard: React.FC = () => {
   );
 };
 
-export default Dashboard;
+export default Dashboard; 
