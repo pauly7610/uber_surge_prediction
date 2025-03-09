@@ -16,7 +16,7 @@ interface DriverSurgeTimelineProps {
 
 const DriverSurgeTimeline: React.FC<DriverSurgeTimelineProps> = ({ initialData }) => {
   const [css] = useStyletron();
-  
+
   // Format dates for display - simplify as much as possible
   const formattedChartData = initialData.map(item => {
     const date = new Date(item.timestamp);
@@ -28,7 +28,7 @@ const DriverSurgeTimeline: React.FC<DriverSurgeTimelineProps> = ({ initialData }
       label: `${hours}:${minutes < 10 ? '0' + minutes : minutes}`
     };
   });
-  
+
   return (
     <CardWrapper title="Surge Timeline">
       <div className={css({
@@ -47,24 +47,24 @@ const DriverSurgeTimeline: React.FC<DriverSurgeTimelineProps> = ({ initialData }
                 <stop offset="95%" stopColor="#3D71FF" stopOpacity={0.1} />
               </linearGradient>
             </defs>
-            <XAxis 
-              dataKey="label" 
+            <XAxis
+              dataKey="label"
               tick={{ fontSize: 12 }}
             />
-            <YAxis 
-              domain={[1, 'auto']} 
+            <YAxis
+              domain={[1, 'auto']}
               tick={{ fontSize: 12 }}
             />
-            <Tooltip 
+            <Tooltip
               formatter={(value) => [`${value}x`, 'Surge']}
               labelFormatter={(hour) => `${hour}:00`}
             />
-            <Area 
-              type="monotone" 
-              dataKey="multiplier" 
-              stroke="#3D71FF" 
-              fillOpacity={1} 
-              fill="url(#colorSurge)" 
+            <Area
+              type="monotone"
+              dataKey="multiplier"
+              stroke="#3D71FF"
+              fillOpacity={1}
+              fill="url(#colorSurge)"
             />
           </AreaChart>
         </ResponsiveContainer>

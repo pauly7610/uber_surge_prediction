@@ -56,6 +56,32 @@ A React application for predicting and visualizing Uber surge pricing, allowing 
    ```
    This will start both the React app on port 8000 and the mock API server on port 5000.
 
+## MVP Approach
+
+This project represents a product management MVP (Minimum Viable Product) approach to demonstrate the Uber Surge Prediction concept:
+
+### Product-First Approach
+
+- The application uses mock data instead of a real ML prediction engine
+- GraphQL structure is in place but connected to mock endpoints
+- Focus is on user experience and interface rather than backend complexity
+
+### Purpose of This Implementation
+
+- **Concept Visualization**: Demonstrate how the product would work with realistic data
+- **Stakeholder Engagement**: Provide a tangible prototype for feedback and buy-in
+- **UX Testing**: Allow for user experience testing before significant backend investment
+- **Feature Validation**: Validate which features provide the most value
+
+### Path to Production
+
+The full PRD (Product Requirements Document) outlines the complete vision including ML models, advanced prediction engines, and full integration with pricing systems. This MVP serves as the first step toward that vision, allowing for:
+
+- Iterative refinement based on feedback
+- Prioritization of features for actual development
+- Technical feasibility assessment
+- Gradual replacement of mock data with real API integrations
+
 ## Mock API
 
 The application includes a mock API that simulates the GraphQL backend:
